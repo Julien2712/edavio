@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { TextLayer } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import {
   AlignJustify,
@@ -238,6 +239,53 @@ function PdfPageCanvas({
   }, [canvasRef, page, userRotation, blankSize.width, blankSize.height, scale, onRendered])
 
   return <canvas ref={canvasRef} className="block rounded-sm bg-white shadow-xl" />
+}
+
+function PdfTextLayer({
+  page,
+  userRotation,
+  scale,
+  interactive,
+}: {
+  page: PDFPageProxy | null
+  userRotation: 0 | 90 | 180 | 270
+  scale: number
+  interactive: boolean
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    container.innerHTML = ''
+    if (!page) return
+
+    const totalRot = (((page.rotate + userRotation) % 360 + 360) % 360) as 0 | 90 | 180 | 270
+    const viewport = page.getViewport({ scale, rotation: totalRot })
+    container.style.setProperty('--total-scale-factor', String(scale))
+
+    const textLayer = new TextLayer({
+      textContentSource: page.streamTextContent(),
+      container,
+      viewport,
+    })
+
+    textLayer.render().catch(() => {
+      // Cancelled
+    })
+
+    return () => {
+      textLayer.cancel()
+      container.innerHTML = ''
+    }
+  }, [page, userRotation, scale])
+
+  return (
+    <div
+      ref={containerRef}
+      className={cn('textLayer z-10', interactive ? 'pointer-events-auto' : 'pointer-events-none')}
+    />
+  )
 }
 
 function ToolbarSeparator() {
@@ -1541,7 +1589,15 @@ export default function PdfEditorPage() {
           className="flex flex-1 flex-col items-center overflow-auto bg-[var(--color-surface-sunken)] px-6 py-8"
         >
           {currentEntry && (
-            <div className="relative">
+            <div
+              className="relative"
+              onPointerDown={() => {
+                if (tool === 'select') {
+                  setSelectedId(null)
+                  setEditingTextId(null)
+                }
+              }}
+            >
               {pageLoading && (
                 <div className="absolute inset-0 z-30 flex items-center justify-center rounded-sm bg-white/60 dark:bg-black/40">
                   <div className="size-6 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-accent)]" />
@@ -1558,6 +1614,13 @@ export default function PdfEditorPage() {
                 }}
                 scale={scale}
                 onRendered={() => setPageLoading(false)}
+              />
+
+              <PdfTextLayer
+                page={pageProxy}
+                userRotation={currentEntry.userRotation}
+                scale={scale}
+                interactive={tool === 'select' && editingTextId === null}
               />
 
               <AnnotationLayer

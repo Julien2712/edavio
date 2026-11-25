@@ -21,6 +21,7 @@ type HandleCorner = 'nw' | 'ne' | 'sw' | 'se'
 type LineEnd = 'start' | 'end'
 
 type DragState =
+  | { kind: 'create-text'; start: Point; current: Point }
   | { kind: 'create-path'; ann: PathAnnotation }
   | { kind: 'create-shape'; start: Point; ann: ShapeAnnotation }
   | { kind: 'create-line'; start: Point; ann: LineAnnotation }
@@ -33,6 +34,62 @@ type DragState =
       orig: { x: number; y: number; width: number; height: number }
     }
   | { kind: 'resize-line'; annId: string; end: LineEnd }
+
+function EditableTextArea({
+  value,
+  placeholder,
+  style,
+  onChange,
+  onDone,
+}: {
+  value: string
+  placeholder: string
+  style: React.CSSProperties
+  onChange: (value: string, scrollHeight: number) => void
+  onDone: () => void
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  const mountedAtRef = useRef<number>(0)
+
+  useEffect(() => {
+    mountedAtRef.current = performance.now()
+    const raf = requestAnimationFrame(() => {
+      const el = ref.current
+      if (!el) return
+      el.focus()
+      const len = el.value.length
+      el.setSelectionRange(len, len)
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      placeholder={placeholder}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => onChange(e.target.value, e.target.scrollHeight)}
+      onBlur={() => {
+        // Guard against stray blur right as pointerup finishes mounting
+        if (performance.now() - mountedAtRef.current < 80) {
+          requestAnimationFrame(() => ref.current?.focus())
+          return
+        }
+        onDone()
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          onDone()
+        }
+      }}
+      className="cursor-text pointer-events-auto h-full min-h-full w-full resize-none bg-transparent outline-none"
+      style={style}
+    />
+  )
+}
 
 function fontCss(family: FontFamily) {
   if (family === 'TimesRoman') return 'Georgia, "Times New Roman", serif'
@@ -353,26 +410,9 @@ export function AnnotationLayer({
     }
 
     if (tool === 'text') {
-      const newText: TextAnnotation = {
-        id: uid(),
-        pageId,
-        type: 'text',
-        x: pt.x,
-        y: pt.y,
-        width: 200,
-        height: Math.max(32, styleConfig.fontSize * 1.5 + 8),
-        text: '',
-        fontSize: styleConfig.fontSize,
-        fontFamily: styleConfig.fontFamily,
-        bold: styleConfig.bold,
-        italic: styleConfig.italic,
-        color: styleConfig.color === '#ffffff' ? '#0f172a' : styleConfig.color,
-        backgroundColor: styleConfig.textBgColor,
-      }
-      onAddAnnotation(newText, true)
-      onSelect(newText.id)
-      onEditingTextIdChange(newText.id)
-      onToolUsed()
+      e.preventDefault()
+      e.currentTarget.setPointerCapture(e.pointerId)
+      setDrag({ kind: 'create-text', start: pt, current: pt })
       return
     }
 
@@ -426,7 +466,9 @@ export function AnnotationLayer({
     if (!drag) return
     const pt = toUnscaledPoint(e.clientX, e.clientY)
 
-    if (drag.kind === 'create-path') {
+    if (drag.kind === 'create-text') {
+      setDrag({ ...drag, current: pt })
+    } else if (drag.kind === 'create-path') {
       setDrag({
         ...drag,
         ann: { ...drag.ann, points: [...drag.ann.points, pt] },
@@ -502,7 +544,38 @@ export function AnnotationLayer({
 
   const handlePointerUp = () => {
     if (!drag) return
-    if (drag.kind === 'create-path') {
+    if (drag.kind === 'create-text') {
+      const draggedW = Math.abs(drag.current.x - drag.start.x)
+      const draggedH = Math.abs(drag.current.y - drag.start.y)
+      const isBoxDrag = draggedW >= 24
+      const x = isBoxDrag ? Math.min(drag.start.x, drag.current.x) : drag.start.x
+      const y = isBoxDrag ? Math.min(drag.start.y, drag.current.y) : drag.start.y
+      const width = isBoxDrag ? Math.max(120, draggedW) : 220
+      const height = Math.max(32, styleConfig.fontSize * 1.5 + 8, isBoxDrag ? draggedH : 0)
+
+      const newText: TextAnnotation = {
+        id: uid(),
+        pageId,
+        type: 'text',
+        x,
+        y,
+        width,
+        height,
+        text: '',
+        fontSize: styleConfig.fontSize,
+        fontFamily: styleConfig.fontFamily,
+        bold: styleConfig.bold,
+        italic: styleConfig.italic,
+        color: styleConfig.color === '#ffffff' ? '#0f172a' : styleConfig.color,
+        backgroundColor: styleConfig.textBgColor,
+      }
+      setDrag(null)
+      onAddAnnotation(newText, true)
+      onSelect(newText.id)
+      onEditingTextIdChange(newText.id)
+      onToolUsed()
+      return
+    } else if (drag.kind === 'create-path') {
       if (drag.ann.points.length >= 2) {
         onAddAnnotation(drag.ann, true)
         onSelect(drag.ann.id)
@@ -589,9 +662,26 @@ export function AnnotationLayer({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
-      className={cn('absolute inset-0 z-20 touch-none select-none', cursorClass)}
+      className={cn(
+        'absolute inset-0 z-20',
+        tool === 'select' ? 'pointer-events-none' : 'touch-none select-none',
+        cursorClass,
+      )}
       style={{ width: `${vpWidth}px`, height: `${vpHeight}px` }}
     >
+      {/* Live preview box when dragging to create a text box */}
+      {drag?.kind === 'create-text' && (
+        <div
+          className="pointer-events-none absolute rounded-xs border-2 border-dashed border-[var(--color-accent)] bg-blue-500/10"
+          style={{
+            left: `${Math.min(drag.start.x, drag.current.x) * scale}px`,
+            top: `${Math.min(drag.start.y, drag.current.y) * scale}px`,
+            width: `${Math.max(4, Math.abs(drag.current.x - drag.start.x)) * scale}px`,
+            height: `${Math.max(styleConfig.fontSize * 1.5, Math.abs(drag.current.y - drag.start.y)) * scale}px`,
+          }}
+        />
+      )}
+
       {/* Detected existing text targets in edit-text mode */}
       {tool === 'edit-text' &&
         detectedText.map((item) => (
@@ -745,7 +835,10 @@ export function AnnotationLayer({
             <div
               key={ann.id}
               onPointerDown={(e) => startMove(e, ann)}
-              className={cn('absolute', tool === 'select' ? 'cursor-move' : 'pointer-events-none')}
+              className={cn(
+                'absolute',
+                tool === 'select' ? 'pointer-events-auto cursor-move' : 'pointer-events-none',
+              )}
               style={{
                 left: `${ann.x * scale}px`,
                 top: `${ann.y * scale}px`,
@@ -785,7 +878,8 @@ export function AnnotationLayer({
               }}
               className={cn(
                 'absolute rounded-xs',
-                tool === 'select' && !isEditing ? 'cursor-move' : '',
+                tool === 'select' && !isEditing ? 'pointer-events-auto cursor-move' : '',
+                isEditing ? 'pointer-events-auto' : '',
                 tool !== 'select' && !isEditing ? 'pointer-events-none' : '',
                 isEditing && 'outline-2 outline-dashed outline-[var(--color-accent)]',
               )}
@@ -794,37 +888,29 @@ export function AnnotationLayer({
                 top: `${ann.y * scale}px`,
                 width: `${ann.width * scale}px`,
                 minHeight: `${ann.height * scale}px`,
-                backgroundColor: ann.backgroundColor ?? 'transparent',
+                backgroundColor:
+                  ann.backgroundColor ?? (isEditing ? 'rgba(59, 130, 246, 0.06)' : 'transparent'),
                 padding: `${pad * scale}px`,
               }}
             >
               {isEditing ? (
-                <textarea
-                  autoFocus
+                <EditableTextArea
                   value={ann.text}
                   placeholder={t('tools.pdfEditor.props.textPlaceholder')}
-                  onChange={(e) => {
-                    const el = e.target
+                  onChange={(val, scrollH) => {
                     onUpdateAnnotation(
                       ann.id,
                       {
-                        text: el.value,
-                        height: Math.max(ann.height, el.scrollHeight / scale),
+                        text: val,
+                        height: Math.max(ann.height, scrollH / scale),
                       },
                       false,
                     )
                   }}
-                  onBlur={() => {
+                  onDone={() => {
                     onEditingTextIdChange(null)
                     onCommitHistory()
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') {
-                      onEditingTextIdChange(null)
-                      onCommitHistory()
-                    }
-                  }}
-                  className="cursor-text h-full min-h-full w-full resize-none bg-transparent outline-none"
                   style={{
                     fontFamily: fontCss(ann.fontFamily),
                     fontSize: `${ann.fontSize * scale}px`,
@@ -876,7 +962,7 @@ export function AnnotationLayer({
           {/* Quick action pill above selection */}
           <div
             onPointerDown={(e) => e.stopPropagation()}
-            className="absolute z-30 flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-1 shadow-lg"
+            className="pointer-events-auto absolute z-30 flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-1 shadow-lg"
             style={{
               left: `${Math.max(4, selectedBounds.x * scale)}px`,
               top: `${Math.max(4, selectedBounds.y * scale - 38)}px`,
@@ -933,7 +1019,7 @@ export function AnnotationLayer({
               <div
                 key={h.corner}
                 onPointerDown={(e) => startResizeBox(e, selectedAnn, h.corner)}
-                className="absolute z-30 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--color-accent)] bg-white shadow"
+                className="pointer-events-auto absolute z-30 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--color-accent)] bg-white shadow"
                 style={{
                   left: `${h.x * scale}px`,
                   top: `${h.y * scale}px`,
@@ -953,7 +1039,7 @@ export function AnnotationLayer({
               <div
                 key={h.end}
                 onPointerDown={(e) => startResizeLine(e, selectedAnn, h.end)}
-                className="absolute z-30 size-3.5 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-2 border-[var(--color-accent)] bg-white shadow"
+                className="pointer-events-auto absolute z-30 size-3.5 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-2 border-[var(--color-accent)] bg-white shadow"
                 style={{
                   left: `${h.x * scale}px`,
                   top: `${h.y * scale}px`,
