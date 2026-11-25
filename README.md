@@ -34,8 +34,8 @@ Requires Node.js 20+.
 Every tool is an independent module that implements `ToolModule` (`src/core/tools/types.ts`) and is registered in the central `ToolRegistry`.
 
 ```text
+electron/             Electron main process + preload
 src/
-├── electron/         Electron main process + preload
 ├── core/
 │   ├── tools/        ToolModule interface + ToolRegistry
 │   └── i18n/         i18next setup and locale files
