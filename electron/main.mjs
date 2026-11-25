@@ -13,6 +13,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     title: 'Edavio',
+    icon: path.join(__dirname, '..', 'public', 'icon.png'),
     backgroundColor: '#0a0a0a',
     autoHideMenuBar: true,
     show: false,

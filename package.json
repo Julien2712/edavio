@@ -50,6 +50,7 @@
   "build": {
     "appId": "com.edavio.app",
     "productName": "Edavio",
+    "icon": "public/icon.png",
     "files": [
       "dist/**/*",
       "electron/**/*",

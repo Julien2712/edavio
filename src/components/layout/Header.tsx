@@ -19,9 +19,9 @@ export function Header() {
         >
           <div className="flex size-7 items-center justify-center rounded-lg bg-[var(--color-accent)] shadow-sm">
             <img
-              src={`${import.meta.env.BASE_URL}favicon.svg`}
+              src={`${import.meta.env.BASE_URL}logo-transparent.svg`}
               alt=""
-              className="size-4 brightness-0 invert"
+              className="size-5"
             />
           </div>
           <span className="text-sm font-bold">{t('app.name')}</span>
