@@ -11,36 +11,54 @@
     "closeMenu": "Close menu"
   },
   "privacy": {
-    "local": "Your documents stay on your device. Nothing is uploaded."
+    "local": "100% local — your files never leave your device",
+    "localShort": "Local & private"
   },
   "home": {
     "title": "Edit your documents, privately.",
-    "subtitle": "Everything runs in your browser. Your files never leave your device.",
-    "tools": "Tools",
-    "open": "Open",
-    "comingSoon": "Coming soon"
+    "subtitle": "Powerful document tools that run entirely in your browser. No uploads, no accounts, no tracking.",
+    "tools": "Available tools",
+    "open": "Open tool",
+    "comingSoon": "Coming soon",
+    "heroFeature1": "No internet needed",
+    "heroFeature2": "No account required",
+    "heroFeature3": "Files stay on your device"
   },
   "tools": {
     "pdfEditor": {
       "name": "PDF Editor",
-      "description": "Edit text, add images, sign, annotate, redact and organize pages.",
-      "placeholder": "The editor is the next phase. The shell and tool registry are ready."
+      "description": "View, annotate and navigate PDF files. Drag & drop any PDF to get started.",
+      "dropzone": "Drop a PDF here",
+      "dropzoneOr": "or",
+      "browse": "Browse file",
+      "loadError": "Could not load PDF. Make sure it is a valid PDF file.",
+      "page": "Page",
+      "of": "of",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "fitPage": "Fit to page",
+      "fitWidth": "Fit to width",
+      "close": "Close file",
+      "openAnother": "Open another PDF",
+      "loading": "Loading PDF…",
+      "pageLoading": "Rendering page…"
     },
     "documentEditor": {
       "name": "Document Editor",
-      "description": "Write and convert text documents."
+      "description": "Write and format text documents with a rich editor."
     },
     "spreadsheetEditor": {
       "name": "Spreadsheet Editor",
-      "description": "Edit and convert spreadsheets."
+      "description": "Edit and analyze spreadsheets with formulas and charts."
     },
     "presentationEditor": {
       "name": "Presentation Editor",
-      "description": "Edit and convert presentations."
+      "description": "Create and edit slide presentations with ease."
     }
   },
   "notFound": {
     "title": "Page not found",
+    "subtitle": "The page you're looking for doesn't exist.",
     "back": "Back to tools"
   }
 }

@@ -11,36 +11,54 @@
     "closeMenu": "Fermer le menu"
   },
   "privacy": {
-    "local": "Vos documents restent sur votre appareil. Rien n'est envoyé."
+    "local": "100 % local — vos fichiers ne quittent jamais votre appareil",
+    "localShort": "Local & privé"
   },
   "home": {
     "title": "Modifiez vos documents, en toute confidentialité.",
-    "subtitle": "Tout s'exécute dans votre navigateur. Vos fichiers ne quittent jamais votre appareil.",
-    "tools": "Outils",
-    "open": "Ouvrir",
-    "comingSoon": "Bientôt disponible"
+    "subtitle": "Des outils puissants qui s'exécutent entièrement dans votre navigateur. Pas de téléversement, pas de compte, pas de traçage.",
+    "tools": "Outils disponibles",
+    "open": "Ouvrir l'outil",
+    "comingSoon": "Bientôt disponible",
+    "heroFeature1": "Sans internet",
+    "heroFeature2": "Sans compte",
+    "heroFeature3": "Fichiers sur votre appareil"
   },
   "tools": {
     "pdfEditor": {
       "name": "Éditeur PDF",
-      "description": "Modifiez le texte, ajoutez des images, signez, annotez, censurez et organisez les pages.",
-      "placeholder": "L'éditeur est la prochaine phase. Le shell et le registre d'outils sont prêts."
+      "description": "Visualisez, annotez et naviguez dans vos PDF. Glissez-déposez un PDF pour commencer.",
+      "dropzone": "Déposez un PDF ici",
+      "dropzoneOr": "ou",
+      "browse": "Parcourir",
+      "loadError": "Impossible de charger le PDF. Vérifiez que c'est un fichier PDF valide.",
+      "page": "Page",
+      "of": "sur",
+      "zoomIn": "Zoom avant",
+      "zoomOut": "Zoom arrière",
+      "fitPage": "Ajuster à la page",
+      "fitWidth": "Ajuster à la largeur",
+      "close": "Fermer le fichier",
+      "openAnother": "Ouvrir un autre PDF",
+      "loading": "Chargement du PDF…",
+      "pageLoading": "Rendu de la page…"
     },
     "documentEditor": {
       "name": "Éditeur de documents",
-      "description": "Rédigez et convertissez des documents texte."
+      "description": "Rédigez et mettez en forme des documents texte avec un éditeur riche."
     },
     "spreadsheetEditor": {
       "name": "Éditeur de feuilles de calcul",
-      "description": "Modifiez et convertissez des feuilles de calcul."
+      "description": "Modifiez et analysez des tableurs avec formules et graphiques."
     },
     "presentationEditor": {
       "name": "Éditeur de présentations",
-      "description": "Modifiez et convertissez des présentations."
+      "description": "Créez et modifiez des présentations de diapositives facilement."
     }
   },
   "notFound": {
     "title": "Page introuvable",
+    "subtitle": "La page que vous cherchez n'existe pas.",
     "back": "Retour aux outils"
   }
 }

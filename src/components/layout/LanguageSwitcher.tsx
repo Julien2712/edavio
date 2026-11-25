@@ -11,24 +11,26 @@ export function LanguageSwitcher() {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <Button variant="ghost" size="icon" aria-label={t('nav.language')}>
-          <Languages className="size-5" />
+        <Button variant="ghost" size="icon" aria-label={t('nav.language')} className="shrink-0">
+          <Languages className="size-4" />
         </Button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           align="end"
           sideOffset={6}
-          className="z-50 min-w-40 rounded-md border border-neutral-200 bg-white p-1 shadow-md dark:border-neutral-800 dark:bg-neutral-900"
+          className="z-50 min-w-40 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-1 shadow-lg shadow-black/10 animate-in fade-in-0 zoom-in-95"
         >
           {SUPPORTED_LANGUAGES.map((lang) => (
             <DropdownMenu.Item
               key={lang.code}
               onSelect={() => void i18n.changeLanguage(lang.code)}
-              className="flex cursor-pointer items-center justify-between rounded px-3 py-2 text-sm outline-none data-highlighted:bg-neutral-100 dark:data-highlighted:bg-neutral-800"
+              className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none transition-colors data-highlighted:bg-[var(--color-surface-raised)]"
             >
-              {lang.label}
-              {current === lang.code && <Check className="size-4" />}
+              <span>{lang.label}</span>
+              {current === lang.code && (
+                <Check className="size-3.5 text-[var(--color-accent)]" />
+              )}
             </DropdownMenu.Item>
           ))}
         </DropdownMenu.Content>
