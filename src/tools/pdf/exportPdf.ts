@@ -337,16 +337,17 @@ export async function exportAnnotatedPdf(params: {
           })
         }
         if (!ann.text.trim()) continue
+        const pad = ann.compact ? 0 : 4
         const fontKey = getStandardFontKey(ann.fontFamily, ann.bold, ann.italic)
         const font = await getFont(fontKey)
-        const lines = wrapTextLines(ann.text, font, ann.fontSize, ann.width - 8)
-        const lineHeight = ann.fontSize * 1.25
+        const lines = wrapTextLines(ann.text, font, ann.fontSize, ann.width - pad * 2)
+        const lineHeight = ann.fontSize * (ann.compact ? 1.15 : 1.25)
         const col = hexToRgb(ann.color)
 
         lines.forEach((line, idx) => {
           if (!line) return
-          const vx = ann.x + 4
-          const vy = ann.y + 4 + ann.fontSize * 0.85 + idx * lineHeight
+          const vx = ann.x + pad
+          const vy = ann.y + pad + ann.fontSize * 0.85 + idx * lineHeight
           const [px, py] = vpToPdf(vx, vy)
           outPage.drawText(line, {
             x: px,

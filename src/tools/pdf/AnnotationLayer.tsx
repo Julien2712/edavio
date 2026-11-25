@@ -25,7 +25,13 @@ type DragState =
   | { kind: 'create-shape'; start: Point; ann: ShapeAnnotation }
   | { kind: 'create-line'; start: Point; ann: LineAnnotation }
   | { kind: 'move'; annId: string; startPt: Point; orig: Annotation }
-  | { kind: 'resize-box'; annId: string; corner: HandleCorner; startPt: Point; orig: { x: number; y: number; width: number; height: number } }
+  | {
+      kind: 'resize-box'
+      annId: string
+      corner: HandleCorner
+      startPt: Point
+      orig: { x: number; y: number; width: number; height: number }
+    }
   | { kind: 'resize-line'; annId: string; end: LineEnd }
 
 function fontCss(family: FontFamily) {
@@ -76,6 +82,101 @@ function uid() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
 }
 
+function rgbToHex(r: number, g: number, b: number) {
+  const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)))
+  return (
+    '#' +
+    [clamp(r), clamp(g), clamp(b)].map((v) => v.toString(16).padStart(2, '0')).join('')
+  )
+}
+
+function sampleColorsFromCanvas(
+  canvas: HTMLCanvasElement | null,
+  item: DetectedTextItem,
+  scale: number,
+): { color: string; backgroundColor: string; bold: boolean } {
+  const fallback = { color: '#0f172a', backgroundColor: '#ffffff', bold: false }
+  if (!canvas) return fallback
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return fallback
+
+  const ratioX = canvas.width / (canvas.clientWidth || canvas.width)
+  const ratioY = canvas.height / (canvas.clientHeight || canvas.height)
+
+  const x0 = Math.max(0, Math.floor(item.x * scale * ratioX))
+  const y0 = Math.max(0, Math.floor(item.y * scale * ratioY))
+  const w = Math.max(4, Math.min(canvas.width - x0, Math.ceil(item.width * scale * ratioX)))
+  const h = Math.max(4, Math.min(canvas.height - y0, Math.ceil(item.height * scale * ratioY)))
+
+  try {
+    // Sample background from a 2px strip right above/below the text box
+    const padY = Math.max(2, Math.round(3 * ratioY))
+    const bgY = Math.max(0, y0 - padY)
+    const bgData = ctx.getImageData(x0, bgY, w, Math.min(padY, canvas.height - bgY)).data
+    const bgRs: number[] = []
+    const bgGs: number[] = []
+    const bgBs: number[] = []
+    for (let i = 0; i < bgData.length; i += 4) {
+      bgRs.push(bgData[i] ?? 255)
+      bgGs.push(bgData[i + 1] ?? 255)
+      bgBs.push(bgData[i + 2] ?? 255)
+    }
+    const median = (arr: number[]) => {
+      if (arr.length === 0) return 255
+      const sorted = [...arr].sort((a, b) => a - b)
+      return sorted[Math.floor(sorted.length / 2)] ?? 255
+    }
+    const bgR = median(bgRs)
+    const bgG = median(bgGs)
+    const bgB = median(bgBs)
+
+    // Sample foreground text pixels inside the box
+    const fgData = ctx.getImageData(x0, y0, w, h).data
+    const contrasts: { dist: number; r: number; g: number; b: number }[] = []
+    for (let i = 0; i < fgData.length; i += 4) {
+      const r = fgData[i] ?? 0
+      const g = fgData[i + 1] ?? 0
+      const b = fgData[i + 2] ?? 0
+      const dist = Math.hypot(r - bgR, g - bgG, b - bgB)
+      if (dist > 45) {
+        contrasts.push({ dist, r, g, b })
+      }
+    }
+
+    if (contrasts.length === 0) {
+      const lum = 0.299 * bgR + 0.587 * bgG + 0.114 * bgB
+      return {
+        color: lum < 140 ? '#ffffff' : '#0f172a',
+        backgroundColor: rgbToHex(bgR, bgG, bgB),
+        bold: false,
+      }
+    }
+
+    contrasts.sort((a, b) => b.dist - a.dist)
+    const topCount = Math.max(1, Math.floor(contrasts.length * 0.35))
+    let sumR = 0
+    let sumG = 0
+    let sumB = 0
+    for (let i = 0; i < topCount; i++) {
+      const c = contrasts[i]!
+      sumR += c.r
+      sumG += c.g
+      sumB += c.b
+    }
+
+    const totalPixels = Math.max(1, w * h)
+    const inkRatio = contrasts.length / totalPixels
+
+    return {
+      color: rgbToHex(sumR / topCount, sumG / topCount, sumB / topCount),
+      backgroundColor: rgbToHex(bgR, bgG, bgB),
+      bold: inkRatio > 0.24 || item.fontSize >= 17,
+    }
+  } catch {
+    return fallback
+  }
+}
+
 export function AnnotationLayer({
   pageId,
   pdfjsPage,
@@ -88,9 +189,11 @@ export function AnnotationLayer({
   annotations,
   selectedId,
   editingTextId,
+  getPageCanvas,
   onSelect,
   onEditingTextIdChange,
   onAddAnnotation,
+  onReplacePdfText,
   onUpdateAnnotation,
   onCommitHistory,
   onDeleteAnnotation,
@@ -108,9 +211,14 @@ export function AnnotationLayer({
   annotations: Annotation[]
   selectedId: string | null
   editingTextId: string | null
+  getPageCanvas: () => HTMLCanvasElement | null
   onSelect: (id: string | null) => void
   onEditingTextIdChange: (id: string | null) => void
   onAddAnnotation: (ann: Annotation, recordHistory?: boolean) => void
+  onReplacePdfText: (
+    item: DetectedTextItem,
+    style: { color: string; backgroundColor: string; bold: boolean },
+  ) => void
   onUpdateAnnotation: (id: string, patch: Partial<Annotation>, recordHistory?: boolean) => void
   onCommitHistory: () => void
   onDeleteAnnotation: (id: string) => void
@@ -125,9 +233,9 @@ export function AnnotationLayer({
     items: DetectedTextItem[]
   }>({ key: '', items: [] })
 
-  const detectedKey = `${pageId}:${userRotation}`
+  const detectedKey = `${pageId}:${userRotation}:${annotations.length}`
 
-  // Load text runs when edit-text mode is active
+  // Load and group text runs by visual line when edit-text mode is active
   useEffect(() => {
     if (tool !== 'edit-text' || !pdfjsPage) return
     let cancelled = false
@@ -138,26 +246,74 @@ export function AnnotationLayer({
       .getTextContent()
       .then((tc) => {
         if (cancelled) return
-        const items: DetectedTextItem[] = []
+        const rawItems: DetectedTextItem[] = []
         tc.items.forEach((raw, idx) => {
           if (!('str' in raw) || !raw.str.trim()) return
           const tx = Util.transform(vp1.transform, raw.transform)
           const fontSize = Math.max(8, Math.round(Math.hypot(tx[2], tx[3])))
-          const w = Math.max(16, raw.width)
-          const h = Math.max(fontSize * 1.3, raw.height || fontSize * 1.3)
+          const w = Math.max(10, raw.width)
+          const h = Math.max(fontSize * 1.2, raw.height || fontSize * 1.2)
           const x = tx[4]
-          const y = tx[5] - fontSize * 0.92
-          items.push({
+          const y = tx[5] - fontSize * 0.88
+
+          const styleObj = tc.styles?.[raw.fontName]
+          const ffRaw = styleObj?.fontFamily ?? ''
+          let fontFamily: FontFamily = 'Helvetica'
+          if (/serif|times/i.test(ffRaw)) fontFamily = 'TimesRoman'
+          else if (/mono|courier/i.test(ffRaw)) fontFamily = 'Courier'
+
+          const pdfFontSize = Math.max(6, Math.hypot(raw.transform[2], raw.transform[3]))
+          const pdfX = raw.transform[4]
+          const pdfY = raw.transform[5]
+
+          rawItems.push({
             id: `txt-${idx}`,
             text: raw.str,
             x,
             y,
-            width: w + 8,
-            height: h + 4,
+            width: w,
+            height: h,
             fontSize,
+            fontFamily,
+            pdfX,
+            pdfMaxX: pdfX + raw.width,
+            pdfY,
+            pdfFontSize,
           })
         })
-        setDetectedTextState({ key: detectedKey, items })
+
+        // Sort top-to-bottom, left-to-right and merge fragments on the same visual line
+        rawItems.sort((a, b) => {
+          if (Math.abs(a.y - b.y) > Math.min(a.fontSize, b.fontSize) * 0.35) {
+            return a.y - b.y
+          }
+          return a.x - b.x
+        })
+
+        const merged: DetectedTextItem[] = []
+        for (const cur of rawItems) {
+          const prev = merged[merged.length - 1]
+          if (prev) {
+            const sameLine = Math.abs(cur.y - prev.y) <= Math.max(4, prev.fontSize * 0.35)
+            const sameSize = Math.abs(cur.fontSize - prev.fontSize) <= Math.max(2, prev.fontSize * 0.25)
+            const gap = cur.x - (prev.x + prev.width)
+            if (sameLine && sameSize && gap >= -prev.fontSize * 0.5 && gap <= prev.fontSize * 1.1) {
+              const needsSpace =
+                gap > prev.fontSize * 0.16 &&
+                !prev.text.endsWith(' ') &&
+                !cur.text.startsWith(' ')
+              prev.text = prev.text + (needsSpace ? ' ' : '') + cur.text
+              prev.width = Math.max(prev.width, cur.x + cur.width - prev.x)
+              prev.height = Math.max(prev.height, cur.height)
+              prev.pdfX = Math.min(prev.pdfX, cur.pdfX)
+              prev.pdfMaxX = Math.max(prev.pdfMaxX, cur.pdfMaxX)
+              continue
+            }
+          }
+          merged.push({ ...cur })
+        }
+
+        setDetectedTextState({ key: detectedKey, items: merged })
       })
       .catch(() => {
         if (!cancelled) setDetectedTextState({ key: detectedKey, items: [] })
@@ -204,7 +360,7 @@ export function AnnotationLayer({
         x: pt.x,
         y: pt.y,
         width: 200,
-        height: Math.max(36, styleConfig.fontSize * 1.6 + 10),
+        height: Math.max(32, styleConfig.fontSize * 1.5 + 8),
         text: '',
         fontSize: styleConfig.fontSize,
         fontFamily: styleConfig.fontFamily,
@@ -404,25 +560,8 @@ export function AnnotationLayer({
   }
 
   const handleDetectedTextClick = (item: DetectedTextItem) => {
-    const newText: TextAnnotation = {
-      id: uid(),
-      pageId,
-      type: 'text',
-      x: item.x,
-      y: item.y,
-      width: Math.max(100, item.width + 24),
-      height: Math.max(24, item.height + 6),
-      text: item.text,
-      fontSize: item.fontSize,
-      fontFamily: 'Helvetica',
-      bold: false,
-      italic: false,
-      color: '#0f172a',
-      backgroundColor: '#ffffff',
-    }
-    onAddAnnotation(newText, true)
-    onSelect(newText.id)
-    onEditingTextIdChange(newText.id)
+    const sampled = sampleColorsFromCanvas(getPageCanvas(), item, scale)
+    onReplacePdfText(item, sampled)
     onToolUsed()
   }
 
@@ -461,7 +600,7 @@ export function AnnotationLayer({
             type="button"
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => handleDetectedTextClick(item)}
-            className="absolute rounded-xs border border-dashed border-blue-400/70 bg-blue-500/5 hover:border-blue-600 hover:bg-blue-500/20 transition-colors"
+            className="cursor-text absolute rounded-xs border border-transparent hover:border-blue-500 hover:bg-blue-500/15 transition-colors"
             style={{
               left: `${item.x * scale}px`,
               top: `${item.y * scale}px`,
@@ -516,7 +655,7 @@ export function AnnotationLayer({
                 opacity={ann.opacity}
                 style={{
                   pointerEvents: tool === 'select' ? 'stroke' : 'none',
-                  cursor: tool === 'select' ? 'move' : undefined,
+                  cursor: tool === 'select' ? 'var(--cursor-move)' : undefined,
                   mixBlendMode: ann.type === 'highlight' ? 'multiply' : 'normal',
                 }}
                 onPointerDown={(e) => startMove(e, ann)}
@@ -538,7 +677,7 @@ export function AnnotationLayer({
                 opacity={ann.opacity}
                 style={{
                   pointerEvents: tool === 'select' ? 'all' : 'none',
-                  cursor: tool === 'select' ? 'move' : undefined,
+                  cursor: tool === 'select' ? 'var(--cursor-move)' : undefined,
                 }}
                 onPointerDown={(e) => startMove(e, ann)}
               />
@@ -559,7 +698,7 @@ export function AnnotationLayer({
                 opacity={ann.opacity}
                 style={{
                   pointerEvents: tool === 'select' ? 'all' : 'none',
-                  cursor: tool === 'select' ? 'move' : undefined,
+                  cursor: tool === 'select' ? 'var(--cursor-move)' : undefined,
                 }}
                 onPointerDown={(e) => startMove(e, ann)}
               />
@@ -579,7 +718,6 @@ export function AnnotationLayer({
                   strokeLinecap="round"
                   markerEnd={ann.type === 'arrow' ? `url(#arrow-${ann.id})` : undefined}
                 />
-                {/* Invisible wider hit target */}
                 {tool === 'select' && (
                   <line
                     x1={ann.x1}
@@ -588,7 +726,7 @@ export function AnnotationLayer({
                     y2={ann.y2}
                     stroke="transparent"
                     strokeWidth={Math.max(14, ann.strokeWidth + 10)}
-                    style={{ pointerEvents: 'stroke', cursor: 'move' }}
+                    style={{ pointerEvents: 'stroke', cursor: 'var(--cursor-move)' }}
                     onPointerDown={(e) => startMove(e, ann)}
                   />
                 )}
@@ -619,7 +757,7 @@ export function AnnotationLayer({
                 src={ann.dataUrl}
                 alt=""
                 draggable={false}
-                className="h-full w-full object-fill select-none"
+                className="h-full w-full select-none object-fill"
               />
             </div>
           )
@@ -627,6 +765,8 @@ export function AnnotationLayer({
 
         if (ann.type === 'text') {
           const isEditing = editingTextId === ann.id
+          const pad = ann.compact ? 0 : 4
+          const lh = ann.compact ? 1.15 : 1.25
           return (
             <div
               key={ann.id}
@@ -647,7 +787,7 @@ export function AnnotationLayer({
                 'absolute rounded-xs',
                 tool === 'select' && !isEditing ? 'cursor-move' : '',
                 tool !== 'select' && !isEditing ? 'pointer-events-none' : '',
-                isEditing && 'ring-2 ring-[var(--color-accent)]',
+                isEditing && 'outline-2 outline-dashed outline-[var(--color-accent)]',
               )}
               style={{
                 left: `${ann.x * scale}px`,
@@ -655,7 +795,7 @@ export function AnnotationLayer({
                 width: `${ann.width * scale}px`,
                 minHeight: `${ann.height * scale}px`,
                 backgroundColor: ann.backgroundColor ?? 'transparent',
-                padding: `${4 * scale}px`,
+                padding: `${pad * scale}px`,
               }}
             >
               {isEditing ? (
@@ -684,11 +824,11 @@ export function AnnotationLayer({
                       onCommitHistory()
                     }
                   }}
-                  className="h-full min-h-full w-full resize-none bg-transparent outline-none"
+                  className="cursor-text h-full min-h-full w-full resize-none bg-transparent outline-none"
                   style={{
                     fontFamily: fontCss(ann.fontFamily),
                     fontSize: `${ann.fontSize * scale}px`,
-                    lineHeight: 1.25,
+                    lineHeight: lh,
                     fontWeight: ann.bold ? 700 : 400,
                     fontStyle: ann.italic ? 'italic' : 'normal',
                     color: ann.color,
@@ -700,7 +840,7 @@ export function AnnotationLayer({
                   style={{
                     fontFamily: fontCss(ann.fontFamily),
                     fontSize: `${ann.fontSize * scale}px`,
-                    lineHeight: 1.25,
+                    lineHeight: lh,
                     fontWeight: ann.bold ? 700 : 400,
                     fontStyle: ann.italic ? 'italic' : 'normal',
                     color: ann.color,
@@ -770,9 +910,24 @@ export function AnnotationLayer({
             (
               [
                 { corner: 'nw', x: selectedAnn.x, y: selectedAnn.y, cursor: 'nwse-resize' },
-                { corner: 'ne', x: selectedAnn.x + selectedAnn.width, y: selectedAnn.y, cursor: 'nesw-resize' },
-                { corner: 'sw', x: selectedAnn.x, y: selectedAnn.y + selectedAnn.height, cursor: 'nesw-resize' },
-                { corner: 'se', x: selectedAnn.x + selectedAnn.width, y: selectedAnn.y + selectedAnn.height, cursor: 'nwse-resize' },
+                {
+                  corner: 'ne',
+                  x: selectedAnn.x + selectedAnn.width,
+                  y: selectedAnn.y,
+                  cursor: 'nesw-resize',
+                },
+                {
+                  corner: 'sw',
+                  x: selectedAnn.x,
+                  y: selectedAnn.y + selectedAnn.height,
+                  cursor: 'nesw-resize',
+                },
+                {
+                  corner: 'se',
+                  x: selectedAnn.x + selectedAnn.width,
+                  y: selectedAnn.y + selectedAnn.height,
+                  cursor: 'nwse-resize',
+                },
               ] as const
             ).map((h) => (
               <div

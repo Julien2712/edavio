@@ -38,15 +38,18 @@ import { Button } from '@/components/ui/button'
 import { AnnotationLayer } from './AnnotationLayer'
 import { exportAnnotatedPdf } from './exportPdf'
 import { PageThumbnails } from './PageThumbnails'
+import { stripSuppressedTextFromPdf, type TextSuppression } from './pdfTextRemover'
 import { SignatureModal } from './SignatureModal'
 import {
   COLOR_SWATCHES,
   HIGHLIGHT_SWATCHES,
   type Annotation,
+  type DetectedTextItem,
   type EditorTool,
   type FontFamily,
   type ImageAnnotation,
   type PageEntry,
+  type TextAnnotation,
   type ToolStyleConfig,
 } from './types'
 
@@ -72,8 +75,14 @@ function uid() {
 
 interface PdfState {
   doc: PDFDocumentProxy
-  rawBytes: Uint8Array
+  originalBytes: Uint8Array
+  workingBytes: Uint8Array
   name: string
+}
+
+interface HistorySnapshot {
+  annotations: Annotation[]
+  suppressions: TextSuppression[]
 }
 
 type ZoomMode = 'custom' | 'fit-width' | 'fit-page'
@@ -167,19 +176,20 @@ function DropZone({ onFile }: { onFile: (file: File) => void }) {
 }
 
 function PdfPageCanvas({
+  canvasRef,
   page,
   userRotation,
   blankSize,
   scale,
   onRendered,
 }: {
+  canvasRef: React.RefObject<HTMLCanvasElement | null>
   page: PDFPageProxy | null
   userRotation: 0 | 90 | 180 | 270
   blankSize: { width: number; height: number }
   scale: number
   onRendered?: () => void
 }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const renderTask = useRef<{ cancel: () => void } | null>(null)
 
   useEffect(() => {
@@ -225,7 +235,7 @@ function PdfPageCanvas({
     return () => {
       task.cancel()
     }
-  }, [page, userRotation, blankSize.width, blankSize.height, scale, onRendered])
+  }, [canvasRef, page, userRotation, blankSize.width, blankSize.height, scale, onRendered])
 
   return <canvas ref={canvasRef} className="block rounded-sm bg-white shadow-xl" />
 }
@@ -255,7 +265,8 @@ export default function PdfEditorPage() {
   // Editing state
   const [tool, setTool] = useState<EditorTool>('select')
   const [annotations, setAnnotations] = useState<Annotation[]>([])
-  const [history, setHistory] = useState<Annotation[][]>([[]])
+  const [suppressions, setSuppressions] = useState<TextSuppression[]>([])
+  const [history, setHistory] = useState<HistorySnapshot[]>([{ annotations: [], suppressions: [] }])
   const [historyIdx, setHistoryIdx] = useState(0)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [editingTextId, setEditingTextId] = useState<string | null>(null)
@@ -275,22 +286,84 @@ export default function PdfEditorPage() {
   })
 
   const viewportRef = useRef<HTMLDivElement>(null)
+  const pageCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const openFileInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const annotationsRef = useRef<Annotation[]>(annotations)
+  const suppressionsRef = useRef<TextSuppression[]>(suppressions)
+  const pdfRef = useRef<PdfState | null>(pdf)
+  const syncSeqRef = useRef(0)
 
   useEffect(() => {
     annotationsRef.current = annotations
   }, [annotations])
 
+  useEffect(() => {
+    suppressionsRef.current = suppressions
+  }, [suppressions])
+
+  useEffect(() => {
+    pdfRef.current = pdf
+  }, [pdf])
+
   const currentEntry = pages[currentIndex] ?? null
+
+  const syncWorkingPdf = useCallback(
+    async (
+      nextSuppressions: TextSuppression[],
+      pendingTransparent?: { annId: string; suppressionId: string },
+    ) => {
+      const currentPdf = pdfRef.current
+      if (!currentPdf) return
+      const seq = ++syncSeqRef.current
+      try {
+        const { bytes, matchedIds } = await stripSuppressedTextFromPdf(
+          currentPdf.originalBytes,
+          nextSuppressions,
+        )
+        if (seq !== syncSeqRef.current) return
+
+        const pdfjs = await loadPdfJs()
+        const nextDoc = await pdfjs.getDocument({ data: bytes.slice() }).promise
+        if (seq !== syncSeqRef.current) return
+
+        setPdf((prev) => (prev ? { ...prev, doc: nextDoc, workingBytes: bytes } : prev))
+
+        if (pendingTransparent && matchedIds.has(pendingTransparent.suppressionId)) {
+          const cleared = annotationsRef.current.map((a) =>
+            a.id === pendingTransparent.annId && a.type === 'text'
+              ? { ...a, backgroundColor: null }
+              : a,
+          )
+          annotationsRef.current = cleared
+          setAnnotations(cleared)
+          setHistory((prev) =>
+            prev.map((snap) => ({
+              ...snap,
+              annotations: snap.annotations.map((a) =>
+                a.id === pendingTransparent.annId && a.type === 'text'
+                  ? { ...a, backgroundColor: null }
+                  : a,
+              ),
+            })),
+          )
+        }
+      } catch (err) {
+        console.error('Failed to update PDF text stream:', err)
+      }
+    },
+    [],
+  )
 
   // ── History helpers ────────────────────────────────────────────────────────
   const pushHistory = useCallback(
-    (next: Annotation[]) => {
+    (nextAnns: Annotation[], nextSuppressions = suppressionsRef.current) => {
       setHistory((prev) => {
         const sliced = prev.slice(0, historyIdx + 1)
-        const updated = [...sliced, next].slice(-50)
+        const updated = [
+          ...sliced,
+          { annotations: nextAnns, suppressions: nextSuppressions },
+        ].slice(-50)
         setHistoryIdx(updated.length - 1)
         return updated
       })
@@ -301,26 +374,38 @@ export default function PdfEditorPage() {
   const undo = useCallback(() => {
     if (historyIdx <= 0) return
     const nextIdx = historyIdx - 1
-    const nextAnns = history[nextIdx]
-    if (!nextAnns) return
+    const snap = history[nextIdx]
+    if (!snap) return
+    const prevSupCount = suppressionsRef.current.length
     setHistoryIdx(nextIdx)
-    setAnnotations(nextAnns)
-    annotationsRef.current = nextAnns
+    setAnnotations(snap.annotations)
+    setSuppressions(snap.suppressions)
+    annotationsRef.current = snap.annotations
+    suppressionsRef.current = snap.suppressions
     setSelectedId(null)
     setEditingTextId(null)
-  }, [history, historyIdx])
+    if (snap.suppressions.length !== prevSupCount) {
+      void syncWorkingPdf(snap.suppressions)
+    }
+  }, [history, historyIdx, syncWorkingPdf])
 
   const redo = useCallback(() => {
     if (historyIdx >= history.length - 1) return
     const nextIdx = historyIdx + 1
-    const nextAnns = history[nextIdx]
-    if (!nextAnns) return
+    const snap = history[nextIdx]
+    if (!snap) return
+    const prevSupCount = suppressionsRef.current.length
     setHistoryIdx(nextIdx)
-    setAnnotations(nextAnns)
-    annotationsRef.current = nextAnns
+    setAnnotations(snap.annotations)
+    setSuppressions(snap.suppressions)
+    annotationsRef.current = snap.annotations
+    suppressionsRef.current = snap.suppressions
     setSelectedId(null)
     setEditingTextId(null)
-  }, [history, historyIdx])
+    if (snap.suppressions.length !== prevSupCount) {
+      void syncWorkingPdf(snap.suppressions)
+    }
+  }, [history, historyIdx, syncWorkingPdf])
 
   const addAnnotation = useCallback(
     (ann: Annotation, recordHistory = true) => {
@@ -330,6 +415,60 @@ export default function PdfEditorPage() {
       if (recordHistory) pushHistory(next)
     },
     [pushHistory],
+  )
+
+  const handleReplacePdfText = useCallback(
+    (
+      item: DetectedTextItem,
+      sampled: { color: string; backgroundColor: string; bold: boolean },
+    ) => {
+      if (!currentEntry) return
+      const suppressionId = uid()
+      let nextSuppressions = suppressionsRef.current
+      if (currentEntry.originalIndex !== null) {
+        const sup: TextSuppression = {
+          id: suppressionId,
+          originalPageIndex: currentEntry.originalIndex,
+          pdfX: item.pdfX,
+          pdfMaxX: item.pdfMaxX,
+          pdfY: item.pdfY,
+          pdfFontSize: item.pdfFontSize,
+        }
+        nextSuppressions = [...suppressionsRef.current, sup]
+        suppressionsRef.current = nextSuppressions
+        setSuppressions(nextSuppressions)
+      }
+
+      const newText: TextAnnotation = {
+        id: uid(),
+        pageId: currentEntry.id,
+        type: 'text',
+        x: item.x,
+        y: item.y,
+        width: Math.max(item.width + 20, 80),
+        height: item.height,
+        text: item.text,
+        fontSize: item.fontSize,
+        fontFamily: item.fontFamily,
+        bold: sampled.bold,
+        italic: false,
+        color: sampled.color,
+        backgroundColor: sampled.backgroundColor,
+        compact: true,
+        suppressionId,
+      }
+      const nextAnns = [...annotationsRef.current, newText]
+      annotationsRef.current = nextAnns
+      setAnnotations(nextAnns)
+      pushHistory(nextAnns, nextSuppressions)
+      setSelectedId(newText.id)
+      setEditingTextId(newText.id)
+
+      if (currentEntry.originalIndex !== null) {
+        void syncWorkingPdf(nextSuppressions, { annId: newText.id, suppressionId })
+      }
+    },
+    [currentEntry, pushHistory, syncWorkingPdf],
   )
 
   const updateAnnotation = useCallback(
@@ -413,7 +552,9 @@ export default function PdfEditorPage() {
       setPdf(null)
       setPages([])
       setAnnotations([])
-      setHistory([[]])
+      setSuppressions([])
+      suppressionsRef.current = []
+      setHistory([{ annotations: [], suppressions: [] }])
       setHistoryIdx(0)
       setSelectedId(null)
       setEditingTextId(null)
@@ -438,7 +579,12 @@ export default function PdfEditorPage() {
             baseHeight: vp.height,
           })
         }
-        setPdf({ doc, rawBytes, name: file.name })
+        setPdf({
+          doc,
+          originalBytes: rawBytes,
+          workingBytes: rawBytes,
+          name: file.name,
+        })
         setPages(entries)
       } catch {
         setError(t('tools.pdfEditor.loadError'))
@@ -685,7 +831,7 @@ export default function PdfEditorPage() {
     setError(null)
     try {
       const bytes = await exportAnnotatedPdf({
-        rawBytes: pdf.rawBytes,
+        rawBytes: pdf.workingBytes,
         pdfjsDoc: pdf.doc,
         pages,
         annotations,
@@ -1016,6 +1162,10 @@ export default function PdfEditorPage() {
               setPageProxy(null)
               setPages([])
               setAnnotations([])
+              setSuppressions([])
+              suppressionsRef.current = []
+              setHistory([{ annotations: [], suppressions: [] }])
+              setHistoryIdx(0)
               setError(null)
             }}
             aria-label={t('tools.pdfEditor.close')}
@@ -1399,6 +1549,7 @@ export default function PdfEditorPage() {
               )}
 
               <PdfPageCanvas
+                canvasRef={pageCanvasRef}
                 page={pageProxy}
                 userRotation={currentEntry.userRotation}
                 blankSize={{
@@ -1421,9 +1572,11 @@ export default function PdfEditorPage() {
                 annotations={pageAnnotations}
                 selectedId={selectedId}
                 editingTextId={editingTextId}
+                getPageCanvas={() => pageCanvasRef.current}
                 onSelect={setSelectedId}
                 onEditingTextIdChange={setEditingTextId}
                 onAddAnnotation={addAnnotation}
+                onReplacePdfText={handleReplacePdfText}
                 onUpdateAnnotation={updateAnnotation}
                 onCommitHistory={commitHistory}
                 onDeleteAnnotation={deleteAnnotation}

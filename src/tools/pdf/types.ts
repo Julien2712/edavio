@@ -37,6 +37,8 @@ export interface TextAnnotation extends BaseAnnotation {
   italic: boolean
   color: string
   backgroundColor: string | null
+  compact?: boolean
+  suppressionId?: string
 }
 
 export interface PathAnnotation extends BaseAnnotation {
@@ -106,6 +108,11 @@ export interface DetectedTextItem {
   width: number
   height: number
   fontSize: number
+  fontFamily: FontFamily
+  pdfX: number
+  pdfMaxX: number
+  pdfY: number
+  pdfFontSize: number
 }
 
 export interface ToolStyleConfig {
