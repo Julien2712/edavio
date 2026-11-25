@@ -1,0 +1,46 @@
+{
+  "app": {
+    "name": "Edavio",
+    "tagline": "Documents made simple."
+  },
+  "nav": {
+    "home": "Tools",
+    "language": "Language",
+    "theme": "Theme",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
+  },
+  "privacy": {
+    "local": "Your documents stay on your device. Nothing is uploaded."
+  },
+  "home": {
+    "title": "Edit your documents, privately.",
+    "subtitle": "Everything runs in your browser. Your files never leave your device.",
+    "tools": "Tools",
+    "open": "Open",
+    "comingSoon": "Coming soon"
+  },
+  "tools": {
+    "pdfEditor": {
+      "name": "PDF Editor",
+      "description": "Edit text, add images, sign, annotate, redact and organize pages.",
+      "placeholder": "The editor is the next phase. The shell and tool registry are ready."
+    },
+    "documentEditor": {
+      "name": "Document Editor",
+      "description": "Write and convert text documents."
+    },
+    "spreadsheetEditor": {
+      "name": "Spreadsheet Editor",
+      "description": "Edit and convert spreadsheets."
+    },
+    "presentationEditor": {
+      "name": "Presentation Editor",
+      "description": "Edit and convert presentations."
+    }
+  },
+  "notFound": {
+    "title": "Page not found",
+    "back": "Back to tools"
+  }
+}

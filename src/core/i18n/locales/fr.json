@@ -1,0 +1,46 @@
+{
+  "app": {
+    "name": "Edavio",
+    "tagline": "Des documents simplifiés."
+  },
+  "nav": {
+    "home": "Outils",
+    "language": "Langue",
+    "theme": "Thème",
+    "openMenu": "Ouvrir le menu",
+    "closeMenu": "Fermer le menu"
+  },
+  "privacy": {
+    "local": "Vos documents restent sur votre appareil. Rien n'est envoyé."
+  },
+  "home": {
+    "title": "Modifiez vos documents, en toute confidentialité.",
+    "subtitle": "Tout s'exécute dans votre navigateur. Vos fichiers ne quittent jamais votre appareil.",
+    "tools": "Outils",
+    "open": "Ouvrir",
+    "comingSoon": "Bientôt disponible"
+  },
+  "tools": {
+    "pdfEditor": {
+      "name": "Éditeur PDF",
+      "description": "Modifiez le texte, ajoutez des images, signez, annotez, censurez et organisez les pages.",
+      "placeholder": "L'éditeur est la prochaine phase. Le shell et le registre d'outils sont prêts."
+    },
+    "documentEditor": {
+      "name": "Éditeur de documents",
+      "description": "Rédigez et convertissez des documents texte."
+    },
+    "spreadsheetEditor": {
+      "name": "Éditeur de feuilles de calcul",
+      "description": "Modifiez et convertissez des feuilles de calcul."
+    },
+    "presentationEditor": {
+      "name": "Éditeur de présentations",
+      "description": "Modifiez et convertissez des présentations."
+    }
+  },
+  "notFound": {
+    "title": "Page introuvable",
+    "back": "Retour aux outils"
+  }
+}
