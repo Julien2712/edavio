@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { TextLayer } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import {
@@ -313,6 +314,8 @@ function ToolbarSeparator() {
 
 export default function PdfEditorPage() {
   const { t } = useTranslation()
+  const location = useLocation()
+  const navigate = useNavigate()
   const [pdf, setPdf] = useState<PdfState | null>(null)
   const [pages, setPages] = useState<PageEntry[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -744,7 +747,17 @@ export default function PdfEditorPage() {
     [t],
   )
 
-  // ── Listen for file opened from the home-page launcher ────────────────────
+  // ── Load file passed via router state or custom event ─────────────────────
+  useEffect(() => {
+    const stateFile = (location.state as { file?: File } | null)?.file
+    if (stateFile) {
+      navigate(location.pathname, { replace: true, state: null })
+      queueMicrotask(() => {
+        void loadFile(stateFile)
+      })
+    }
+  }, [location.state, location.pathname, navigate, loadFile])
+
   useEffect(() => {
     const handler = (e: Event) => {
       const file = (e as CustomEvent<{ file: File }>).detail?.file

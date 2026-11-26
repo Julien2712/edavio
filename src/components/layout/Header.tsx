@@ -27,11 +27,14 @@ export function Header() {
             const tools = ToolRegistry.list().filter((tool) => tool.section === section && tool.component)
             const first = tools[0]
             if (!first) return null
-            const active = tools.some((tool) => pathname.startsWith(tool.route))
+            const to = section === 'edit' ? '/edit' : first.route
+            const active =
+              (section === 'edit' && pathname.startsWith('/edit')) ||
+              tools.some((tool) => pathname.startsWith(tool.route))
             return (
               <Link
                 key={section}
-                to={first.route}
+                to={to}
                 className={cn(
                   'whitespace-nowrap rounded-md px-2.5 py-1 text-[13px] transition-colors',
                   active

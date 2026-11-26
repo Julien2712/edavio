@@ -1,89 +1,151 @@
-import { useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import {
   ArrowRight,
+  BookOpen,
+  FileOutput,
   FileSpreadsheet,
   FileText,
   FileType2,
+  Images,
   Lock,
+  Minimize2,
   Presentation,
-  Sparkles,
-  Upload,
   WifiOff,
   Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+// ── Static section definitions ─────────────────────────────────────────────────
 
-interface ToolCard {
-  id: string
+interface SectionTool {
   nameKey: string
   descriptionKey: string
-  badge?: string
-  color: string
-  iconBg: string
   icon: React.ElementType
+  iconBg: string
   route: string
-  accept: string | null
   available: boolean
-  features: string[]
 }
 
-// ── Tool definitions ───────────────────────────────────────────────────────────
+interface HomeSection {
+  id: string
+  titleKey: string
+  subtitleKey: string
+  accentColor: string
+  headerBg: string
+  headerText: string
+  route: string
+  tools: SectionTool[]
+}
 
-const TOOLS: ToolCard[] = [
+const SECTIONS: HomeSection[] = [
   {
-    id: 'pdf',
-    nameKey: 'tools.pdfEditor.name',
-    descriptionKey: 'tools.pdfEditor.description',
-    color: 'from-indigo-500 to-violet-600',
-    iconBg: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400',
-    icon: FileText,
-    route: '/pdf/edit',
-    accept: 'application/pdf,.pdf',
-    available: true,
-    features: ['home.pdf.feat1', 'home.pdf.feat2', 'home.pdf.feat3'],
+    id: 'edit',
+    titleKey: 'sections.edit',
+    subtitleKey: 'home.sections.editHint',
+    accentColor: 'from-indigo-500 to-violet-600',
+    headerBg: 'bg-indigo-50 dark:bg-indigo-950/60',
+    headerText: 'text-indigo-600 dark:text-indigo-400',
+    route: '/edit',
+    tools: [
+      {
+        nameKey: 'tools.pdfEditor.name',
+        descriptionKey: 'tools.pdfEditor.description',
+        icon: FileText,
+        iconBg: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/60 dark:text-indigo-400',
+        route: '/edit',
+        available: true,
+      },
+      {
+        nameKey: 'tools.documentEditor.name',
+        descriptionKey: 'tools.documentEditor.description',
+        icon: FileType2,
+        iconBg: 'bg-sky-100 text-sky-600 dark:bg-sky-900/60 dark:text-sky-400',
+        route: '/edit',
+        available: false,
+      },
+      {
+        nameKey: 'tools.spreadsheetEditor.name',
+        descriptionKey: 'tools.spreadsheetEditor.description',
+        icon: FileSpreadsheet,
+        iconBg: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/60 dark:text-emerald-400',
+        route: '/edit',
+        available: false,
+      },
+      {
+        nameKey: 'tools.presentationEditor.name',
+        descriptionKey: 'tools.presentationEditor.description',
+        icon: Presentation,
+        iconBg: 'bg-orange-100 text-orange-600 dark:bg-orange-900/60 dark:text-orange-400',
+        route: '/edit',
+        available: false,
+      },
+    ],
   },
   {
-    id: 'docs',
-    nameKey: 'tools.documentEditor.name',
-    descriptionKey: 'tools.documentEditor.description',
-    badge: 'home.comingSoon',
-    color: 'from-sky-500 to-blue-600',
-    iconBg: 'bg-sky-50 text-sky-600 dark:bg-sky-950 dark:text-sky-400',
-    icon: FileType2,
-    route: '/documents/edit',
-    accept: '.doc,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    available: false,
-    features: ['home.docs.feat1', 'home.docs.feat2', 'home.docs.feat3'],
+    id: 'read',
+    titleKey: 'sections.read',
+    subtitleKey: 'home.sections.readHint',
+    accentColor: 'from-sky-500 to-blue-600',
+    headerBg: 'bg-sky-50 dark:bg-sky-950/60',
+    headerText: 'text-sky-600 dark:text-sky-400',
+    route: '/read',
+    tools: [
+      {
+        nameKey: 'tools.documentReader.name',
+        descriptionKey: 'tools.documentReader.description',
+        icon: BookOpen,
+        iconBg: 'bg-sky-100 text-sky-600 dark:bg-sky-900/60 dark:text-sky-400',
+        route: '/read',
+        available: false,
+      },
+    ],
   },
   {
-    id: 'excel',
-    nameKey: 'tools.spreadsheetEditor.name',
-    descriptionKey: 'tools.spreadsheetEditor.description',
-    badge: 'home.comingSoon',
-    color: 'from-emerald-500 to-teal-600',
-    iconBg: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400',
-    icon: FileSpreadsheet,
-    route: '/spreadsheets/edit',
-    accept: '.xls,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    available: false,
-    features: ['home.excel.feat1', 'home.excel.feat2', 'home.excel.feat3'],
+    id: 'compress',
+    titleKey: 'sections.compress',
+    subtitleKey: 'home.sections.compressHint',
+    accentColor: 'from-emerald-500 to-teal-600',
+    headerBg: 'bg-emerald-50 dark:bg-emerald-950/60',
+    headerText: 'text-emerald-600 dark:text-emerald-400',
+    route: '/compress',
+    tools: [
+      {
+        nameKey: 'tools.pdfCompressor.name',
+        descriptionKey: 'tools.pdfCompressor.description',
+        icon: Minimize2,
+        iconBg: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/60 dark:text-emerald-400',
+        route: '/compress',
+        available: false,
+      },
+    ],
   },
   {
-    id: 'ppt',
-    nameKey: 'tools.presentationEditor.name',
-    descriptionKey: 'tools.presentationEditor.description',
-    badge: 'home.comingSoon',
-    color: 'from-orange-500 to-red-500',
-    iconBg: 'bg-orange-50 text-orange-600 dark:bg-orange-950 dark:text-orange-400',
-    icon: Presentation,
-    route: '/presentations/edit',
-    accept: '.ppt,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    available: false,
-    features: ['home.ppt.feat1', 'home.ppt.feat2', 'home.ppt.feat3'],
+    id: 'convert',
+    titleKey: 'sections.convert',
+    subtitleKey: 'home.sections.convertHint',
+    accentColor: 'from-orange-500 to-red-500',
+    headerBg: 'bg-orange-50 dark:bg-orange-950/60',
+    headerText: 'text-orange-600 dark:text-orange-400',
+    route: '/convert/documents',
+    tools: [
+      {
+        nameKey: 'tools.imageConverter.name',
+        descriptionKey: 'tools.imageConverter.description',
+        icon: Images,
+        iconBg: 'bg-orange-100 text-orange-600 dark:bg-orange-900/60 dark:text-orange-400',
+        route: '/convert/images',
+        available: false,
+      },
+      {
+        nameKey: 'tools.documentConverter.name',
+        descriptionKey: 'tools.documentConverter.description',
+        icon: FileOutput,
+        iconBg: 'bg-red-100 text-red-600 dark:bg-red-900/60 dark:text-red-400',
+        route: '/convert/documents',
+        available: false,
+      },
+    ],
   },
 ]
 
@@ -98,133 +160,78 @@ function HeroBadge({ icon: Icon, label }: { icon: React.ElementType; label: stri
   )
 }
 
-function ToolCardComponent({ tool }: { tool: ToolCard }) {
+function SectionCard({ section }: { section: HomeSection }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const handleFileChosen = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0]
-      if (!file) return
-      e.target.value = ''
-      // Navigate to tool route — the tool page picks up the file via a custom
-      // event so it can open it immediately without prop-drilling.
-      const event = new CustomEvent('edavio:open-file', { detail: { file } })
-      window.dispatchEvent(event)
-      navigate(tool.route)
-    },
-    [navigate, tool.route],
-  )
-
-  const handleOpen = useCallback(() => {
-    if (!tool.available) return
-    fileInputRef.current?.click()
-  }, [tool.available])
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault()
-        handleOpen()
-      }
-    },
-    [handleOpen],
-  )
-
-  const Icon = tool.icon
 
   return (
-    <article
-      role={tool.available ? 'button' : undefined}
-      tabIndex={tool.available ? 0 : undefined}
-      onClick={handleOpen}
-      onKeyDown={handleKeyDown}
-      aria-label={tool.available ? t('home.openTool', { tool: t(tool.nameKey) }) : undefined}
-      className={cn(
-        'group relative flex flex-col rounded-2xl border p-6 transition-all duration-200 select-none',
-        tool.available
-          ? 'cursor-pointer border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-accent)] hover:shadow-[var(--shadow-lg)]'
-          : 'cursor-default border-[var(--color-border-subtle)] bg-[var(--color-surface-raised)] opacity-70',
-      )}
-    >
-      {/* Top row: icon + badge */}
-      <div className="mb-5 flex items-start justify-between gap-3">
-        <div
-          className={cn(
-            'flex size-12 items-center justify-center rounded-xl transition-transform duration-200',
-            tool.iconBg,
-            tool.available && 'group-hover:scale-110',
-          )}
-        >
-          <Icon className="size-6" aria-hidden />
-        </div>
-
-        {tool.badge && (
-          <span className="rounded-full bg-[var(--color-surface-sunken)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
-            {t(tool.badge)}
-          </span>
-        )}
-      </div>
-
-      {/* Title + description */}
-      <h2 className="text-base font-semibold text-[var(--color-text-primary)]">{t(tool.nameKey)}</h2>
-      <p className="mt-1 flex-1 text-sm leading-relaxed text-[var(--color-text-secondary)]">
-        {t(tool.descriptionKey)}
-      </p>
-
-      {/* Feature pills */}
-      <ul className="mt-4 flex flex-wrap gap-1.5" aria-label="Fonctionnalités">
-        {tool.features.map((fk) => (
-          <li
-            key={fk}
-            className="rounded-md bg-[var(--color-surface-sunken)] px-2 py-0.5 text-[11px] text-[var(--color-text-secondary)]"
+    <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+      {/* Section header */}
+      <div className={cn('px-5 py-4', section.headerBg)}>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className={cn('text-base font-semibold', section.headerText)}>
+              {t(section.titleKey)}
+            </h2>
+            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+              {t(section.subtitleKey)}
+            </p>
+          </div>
+          <Link
+            to={section.route}
+            className={cn(
+              'shrink-0 inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+              'bg-white/70 hover:bg-white dark:bg-black/30 dark:hover:bg-black/50',
+              section.headerText,
+            )}
           >
-            {t(fk)}
-          </li>
-        ))}
-      </ul>
-
-      {/* CTA */}
-      <div className="mt-5 flex items-center gap-2">
-        {tool.available ? (
-          <>
-            <span className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white transition-colors group-hover:bg-[var(--color-accent-hover)]">
-              <Upload className="size-3.5" aria-hidden />
-              {t('home.openFile')}
-            </span>
-            <span className="text-xs text-[var(--color-text-tertiary)] transition-opacity group-hover:opacity-100 opacity-0">
-              {t('home.orDrop')}
-            </span>
-          </>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-tertiary)]">
-            {t('home.comingSoon')}
-            <ArrowRight className="size-3.5" />
-          </span>
-        )}
+            {t('home.seeAll')}
+            <ArrowRight className="size-3" />
+          </Link>
+        </div>
       </div>
 
-      {/* Gradient accent bar on hover */}
-      {tool.available && (
-        <span
-          className={cn(
-            'absolute inset-x-0 bottom-0 h-0.5 rounded-b-2xl bg-gradient-to-r opacity-0 transition-opacity duration-200 group-hover:opacity-100',
-            tool.color,
-          )}
-          aria-hidden
-        />
-      )}
+      {/* Tool list */}
+      <ul className="divide-y divide-[var(--color-border-subtle)]">
+        {section.tools.map((tool) => {
+          const Icon = tool.icon
+          const content = (
+            <li className={cn(
+              'flex items-center gap-4 px-5 py-3.5 transition-colors',
+              tool.available
+                ? 'hover:bg-[var(--color-surface-raised)] cursor-pointer'
+                : 'opacity-60 cursor-default',
+            )}>
+              <div className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg', tool.iconBg)}>
+                <Icon className="size-4" aria-hidden />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
+                  {t(tool.nameKey)}
+                </p>
+                <p className="mt-0.5 text-xs text-[var(--color-text-secondary)] truncate">
+                  {t(tool.descriptionKey)}
+                </p>
+              </div>
+              {tool.available ? (
+                <ArrowRight className="size-4 shrink-0 text-[var(--color-text-tertiary)]" />
+              ) : (
+                <span className="shrink-0 rounded-full bg-[var(--color-surface-sunken)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-disabled)]">
+                  {t('home.comingSoon')}
+                </span>
+              )}
+            </li>
+          )
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept={tool.accept ?? undefined}
-        className="sr-only"
-        tabIndex={-1}
-        onChange={handleFileChosen}
-      />
-    </article>
+          return tool.available ? (
+            <Link key={tool.nameKey} to={tool.route} className="block">
+              {content}
+            </Link>
+          ) : (
+            <div key={tool.nameKey}>{content}</div>
+          )
+        })}
+      </ul>
+    </div>
   )
 }
 
@@ -237,7 +244,7 @@ export default function HomePage() {
     <div className="mx-auto w-full max-w-5xl px-4 pb-24 sm:px-6">
 
       {/* ── Hero ── */}
-      <section className="pt-20 pb-14 sm:pt-28">
+      <section className="pt-20 pb-12 sm:pt-28">
         <div className="max-w-2xl">
           <h1 className="text-4xl font-semibold tracking-tight text-[var(--color-text-primary)] sm:text-5xl">
             {t('home.title')}
@@ -253,23 +260,15 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Tool cards ── */}
+      {/* ── Sections grid ── */}
       <section>
-        <div className="mb-6 flex items-center gap-3">
-          <Sparkles className="size-4 text-[var(--color-accent)]" aria-hidden />
-          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
-            {t('home.chooseFormat')}
-          </h2>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          {TOOLS.map((tool) => (
-            <ToolCardComponent key={tool.id} tool={tool} />
+        <div className="grid gap-5 sm:grid-cols-2">
+          {SECTIONS.map((section) => (
+            <SectionCard key={section.id} section={section} />
           ))}
         </div>
       </section>
 
-      {/* ── Footer note ── */}
       <p className="mt-10 text-center text-xs text-[var(--color-text-disabled)]">
         {t('home.privacyNote')}
       </p>

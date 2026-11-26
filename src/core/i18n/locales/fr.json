@@ -24,6 +24,13 @@
     "orDrop": "ou glisser-déposer",
     "comingSoon": "Bientôt disponible",
     "chooseFormat": "Choisissez votre format",
+    "seeAll": "Voir",
+    "sections": {
+      "editHint": "Modifiez vos PDF, documents, tableurs et présentations",
+      "readHint": "Ouvrez et parcourez vos documents confortablement",
+      "compressHint": "Réduisez le poids de vos fichiers sans perte visible",
+      "convertHint": "Changez le format de vos images et documents"
+    },
     "privacyNote": "Vos fichiers restent sur votre appareil. Aucun envoi de données, aucun compte requis.",
     "heroFeature1": "Sans internet",
     "heroFeature2": "Sans compte",

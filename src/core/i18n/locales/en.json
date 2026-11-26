@@ -24,6 +24,13 @@
     "orDrop": "or drag & drop",
     "comingSoon": "Coming soon",
     "chooseFormat": "Choose your format",
+    "seeAll": "Open",
+    "sections": {
+      "editHint": "Edit PDFs, documents, spreadsheets and presentations",
+      "readHint": "Open and browse your documents comfortably",
+      "compressHint": "Reduce file size without visible quality loss",
+      "convertHint": "Convert your images and documents between formats"
+    },
     "privacyNote": "Your files stay on your device. No uploads, no account required.",
     "heroFeature1": "No internet needed",
     "heroFeature2": "No account required",
