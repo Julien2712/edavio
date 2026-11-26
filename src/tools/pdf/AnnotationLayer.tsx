@@ -1,3 +1,4 @@
+import { polygonPoints } from './shapeGeometry'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { PDFPageProxy } from 'pdfjs-dist'
@@ -134,6 +135,7 @@ function getBoxBounds(ann: Annotation): { x: number; y: number; width: number; h
     case 'text':
     case 'rect':
     case 'ellipse':
+    case 'polygon':
     case 'redact':
     case 'image':
     case 'sign':
@@ -575,12 +577,13 @@ export function AnnotationLayer({
         opacity: isHighlight ? 0.38 : 1,
       }
       setDrag({ kind: 'create-path', ann })
-    } else if (tool === 'rect' || tool === 'ellipse' || tool === 'redact') {
+    } else if (tool === 'rect' || tool === 'ellipse' || tool === 'polygon' || tool === 'redact') {
       const isRedact = tool === 'redact'
       const ann: ShapeAnnotation = {
         id: uid(),
         pageId,
         type: tool,
+        polygon: tool === 'polygon' ? styleConfig.polygonKind : undefined,
         x: pt.x,
         y: pt.y,
         width: 1,
@@ -651,6 +654,7 @@ export function AnnotationLayer({
         case 'text':
         case 'rect':
         case 'ellipse':
+        case 'polygon':
         case 'redact':
         case 'image':
         case 'sign':
@@ -1136,6 +1140,27 @@ export function AnnotationLayer({
             )
           }
 
+          if (ann.type === 'polygon') {
+            return (
+              <polygon
+                key={ann.id}
+                points={polygonPoints(ann.polygon ?? 'triangle', ann.x, ann.y, ann.width, ann.height)
+                  .map((p) => p.join(','))
+                  .join(' ')}
+                fill={ann.fillColor ?? 'transparent'}
+                stroke={ann.strokeWidth > 0 ? ann.color : 'none'}
+                strokeWidth={ann.strokeWidth}
+                strokeLinejoin="round"
+                opacity={ann.opacity}
+                style={{
+                  pointerEvents: tool === 'select' ? 'all' : 'none',
+                  cursor: tool === 'select' ? 'var(--cursor-move)' : undefined,
+                }}
+                onPointerDown={(e) => startMove(e, ann)}
+              />
+            )
+          }
+
           if (ann.type === 'ellipse') {
             return (
               <ellipse
@@ -1376,6 +1401,7 @@ export function AnnotationLayer({
           {/* Box resize handles */}
           {(selectedAnn.type === 'rect' ||
             selectedAnn.type === 'ellipse' ||
+            selectedAnn.type === 'polygon' ||
             selectedAnn.type === 'redact' ||
             selectedAnn.type === 'text' ||
             selectedAnn.type === 'image' ||

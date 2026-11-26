@@ -4,13 +4,12 @@ import { TextLayer } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import {
   AlignJustify,
-  ArrowUpRight,
   Bold,
   BoxSelect,
   Check,
   ChevronLeft,
+  ChevronDown,
   ChevronRight,
-  Circle,
   Download,
   Eraser,
   FileText,
@@ -19,14 +18,12 @@ import {
   ImagePlus,
   Italic,
   Maximize2,
-  Minus,
   MousePointer2,
   PanelLeft,
   PenTool,
   Redo2,
   RotateCcw,
   Signature,
-  Square,
   TextCursorInput,
   Type,
   Undo2,
@@ -40,6 +37,8 @@ import { Button } from '@/components/ui/button'
 import { AnnotationLayer } from './AnnotationLayer'
 import { exportAnnotatedPdf } from './exportPdf'
 import { PageThumbnails } from './PageThumbnails'
+import { ShapeIcon } from './ShapeIcon'
+import type { PolygonKind } from './shapeGeometry'
 import { baselineFromTop, fitLetterSpacing, lineHeightFactor, measureTextWidth } from './fontInfo'
 import { extractPageShapes } from './pdfShapes'
 import { applySuppressions, type Suppression } from './pdfSuppress'
@@ -149,31 +148,31 @@ function DropZone({ onFile }: { onFile: (file: File) => void }) {
         }}
         aria-label={t('tools.pdfEditor.dropzone')}
         className={cn(
-          'group relative flex w-full max-w-lg cursor-pointer select-none flex-col items-center gap-6 rounded-3xl border-2 border-dashed p-16 transition-all duration-200',
+          'group relative flex w-full max-w-md cursor-pointer select-none flex-col items-center gap-5 rounded-2xl border border-dashed p-14 transition-colors',
           dragging
-            ? 'scale-[1.01] border-[var(--color-accent)] bg-[var(--color-accent-light)]'
+            ? 'border-[var(--color-accent)] bg-[var(--color-accent-light)]'
             : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-light)]',
         )}
       >
         <div
           className={cn(
-            'flex size-20 items-center justify-center rounded-2xl border-2 transition-colors',
+            'flex size-14 items-center justify-center rounded-xl transition-colors',
             dragging
-              ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white'
-              : 'border-[var(--color-border)] bg-[var(--color-surface-raised)] text-[var(--color-text-tertiary)] group-hover:border-[var(--color-accent)] group-hover:bg-[var(--color-accent)] group-hover:text-white',
+              ? 'bg-[var(--color-accent)] text-white'
+              : 'bg-[var(--color-surface-sunken)] text-[var(--color-text-tertiary)] group-hover:bg-[var(--color-accent)] group-hover:text-white',
           )}
         >
-          <FileText className="size-9" aria-hidden />
+          <FileText className="size-6" aria-hidden />
         </div>
 
         <div className="text-center">
-          <p className="text-lg font-semibold text-[var(--color-text-primary)]">
+          <p className="text-base font-medium text-[var(--color-text-primary)]">
             {t('tools.pdfEditor.dropzone')}
           </p>
           <p className="mt-1.5 text-sm text-[var(--color-text-tertiary)]">
             {t('tools.pdfEditor.dropzoneOr')}
           </p>
-          <div className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[var(--color-accent)] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors group-hover:bg-[var(--color-accent-hover)]">
+          <div className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white transition-colors group-hover:bg-[var(--color-accent-hover)]">
             <Upload className="size-4" />
             {t('tools.pdfEditor.browse')}
           </div>
@@ -319,6 +318,8 @@ export default function PdfEditorPage() {
   const [vpSize, setVpSize] = useState<{ width: number; height: number }>({ width: 595, height: 842 })
 
   const [scale, setScale] = useState(1.2)
+  const [shapesOpen, setShapesOpen] = useState(false)
+  const [lastShape, setLastShape] = useState<string>('rect')
   const [zoomMode, setZoomMode] = useState<ZoomMode>('custom')
   const [loading, setLoading] = useState(false)
   const [pageLoading, setPageLoading] = useState(false)
@@ -354,6 +355,7 @@ export default function PdfEditorPage() {
     italic: false,
     strokeWidth: 2,
     highlightColor: '#fef08a',
+    polygonKind: 'triangle',
     redactColor: '#ffffff',
   })
 
@@ -651,6 +653,7 @@ export default function PdfEditorPage() {
         case 'text':
         case 'rect':
         case 'ellipse':
+        case 'polygon':
         case 'redact':
         case 'image':
         case 'sign':
@@ -1122,18 +1125,22 @@ export default function PdfEditorPage() {
     tool === 'draw' ||
     tool === 'rect' ||
     tool === 'ellipse' ||
+    tool === 'polygon' ||
     tool === 'line' ||
     tool === 'arrow' ||
     selectedAnn?.type === 'draw' ||
     selectedAnn?.type === 'rect' ||
     selectedAnn?.type === 'ellipse' ||
+    selectedAnn?.type === 'polygon' ||
     selectedAnn?.type === 'line' ||
     selectedAnn?.type === 'arrow'
   const showFillToggle =
     tool === 'rect' ||
     tool === 'ellipse' ||
+    tool === 'polygon' ||
     selectedAnn?.type === 'rect' ||
-    selectedAnn?.type === 'ellipse'
+    selectedAnn?.type === 'ellipse' ||
+    selectedAnn?.type === 'polygon'
   const showHighlightProps = tool === 'highlight' || selectedAnn?.type === 'highlight'
   const showRedactProps = tool === 'redact' || selectedAnn?.type === 'redact'
   const showColorProps = showTextProps || showStrokeProps
@@ -1352,62 +1359,151 @@ export default function PdfEditorPage() {
         </div>
       </div>
 
-      {/* ── Row 2: Annotation Tools & Contextual Properties ── */}
-      <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-1.5">
-        {/* Tool Buttons */}
-        {(
-          [
-            { id: 'select', icon: MousePointer2, label: t('tools.pdfEditor.tools.select') },
-            { id: 'text', icon: Type, label: t('tools.pdfEditor.tools.text') },
-            { id: 'edit-text', icon: TextCursorInput, label: t('tools.pdfEditor.tools.editText') },
-            { id: 'edit-shape', icon: BoxSelect, label: t('tools.pdfEditor.tools.editShape') },
-            { id: 'draw', icon: PenTool, label: t('tools.pdfEditor.tools.draw') },
-            { id: 'highlight', icon: Highlighter, label: t('tools.pdfEditor.tools.highlight') },
-            { id: 'rect', icon: Square, label: t('tools.pdfEditor.tools.rect') },
-            { id: 'ellipse', icon: Circle, label: t('tools.pdfEditor.tools.ellipse') },
-            { id: 'line', icon: Minus, label: t('tools.pdfEditor.tools.line') },
-            { id: 'arrow', icon: ArrowUpRight, label: t('tools.pdfEditor.tools.arrow') },
-            { id: 'redact', icon: Eraser, label: t('tools.pdfEditor.tools.redact') },
-          ] as const
-        ).map((item) => {
-          const active = tool === item.id
+      {/* ── Row 2: tools ── */}
+      <div className="flex shrink-0 flex-wrap items-center gap-0.5 border-b border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5">
+        {(() => {
+          const toolBtn = (
+            id: EditorTool,
+            Icon: React.ElementType,
+            label: string,
+          ) => {
+            const active = tool === id
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => {
+                  setTool(id)
+                  setShapesOpen(false)
+                  setSelectedShapeId(null)
+                  if (id !== 'select') {
+                    setSelectedId(null)
+                    setEditingTextId(null)
+                  }
+                }}
+                title={label}
+                aria-label={label}
+                aria-pressed={active}
+                className={cn(
+                  'inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors',
+                  active
+                    ? 'bg-[var(--color-accent-light)] font-medium text-[var(--color-accent)]'
+                    : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-sunken)] hover:text-[var(--color-text-primary)]',
+                )}
+              >
+                <Icon className="size-4" />
+                <span className="hidden xl:inline">{label}</span>
+              </button>
+            )
+          }
+          const SHAPE_GROUPS: { label: string; items: string[] }[] = [
+            { label: t('tools.pdfEditor.shapes.lines'), items: ['line', 'arrow'] },
+            { label: t('tools.pdfEditor.shapes.basic'), items: ['rect', 'ellipse', 'triangle', 'right-triangle', 'diamond'] },
+            { label: t('tools.pdfEditor.shapes.more'), items: ['pentagon', 'hexagon', 'octagon', 'star', 'star4', 'cross', 'block-arrow', 'chevron', 'trapezoid', 'parallelogram'] },
+          ]
+          const shapeTools: EditorTool[] = ['rect', 'ellipse', 'polygon', 'line', 'arrow']
+          const shapeActive = shapeTools.includes(tool)
+          const currentShape =
+            tool === 'polygon' ? styleConfig.polygonKind : shapeActive ? tool : lastShape
+          const pickShape = (id: string) => {
+            setLastShape(id)
+            if (id === 'rect' || id === 'ellipse' || id === 'line' || id === 'arrow') {
+              setTool(id)
+            } else {
+              setStyleConfig((s) => ({ ...s, polygonKind: id as PolygonKind }))
+              setTool('polygon')
+            }
+            setSelectedId(null)
+            setSelectedShapeId(null)
+            setEditingTextId(null)
+            setShapesOpen(false)
+          }
           return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                setTool(item.id)
-                setSelectedShapeId(null)
-                if (item.id !== 'select') {
-                  setSelectedId(null)
-                  setEditingTextId(null)
-                }
-              }}
-              title={item.label}
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all',
-                active
-                  ? 'bg-[var(--color-accent)] text-white shadow-xs'
-                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text-primary)]',
-              )}
-            >
-              <item.icon className="size-3.5" />
-              <span className="hidden lg:inline">{item.label}</span>
-            </button>
+            <>
+              {toolBtn('select', MousePointer2, t('tools.pdfEditor.tools.select'))}
+              <ToolbarSeparator />
+              {toolBtn('text', Type, t('tools.pdfEditor.tools.text'))}
+              {toolBtn('edit-text', TextCursorInput, t('tools.pdfEditor.tools.editText'))}
+              <ToolbarSeparator />
+
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShapesOpen((v) => !v)}
+                  title={t('tools.pdfEditor.shapes.menu')}
+                  aria-haspopup="menu"
+                  aria-expanded={shapesOpen}
+                  className={cn(
+                    'inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors',
+                    shapeActive
+                      ? 'bg-[var(--color-accent-light)] font-medium text-[var(--color-accent)]'
+                      : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-sunken)] hover:text-[var(--color-text-primary)]',
+                  )}
+                >
+                  <ShapeIcon shape={currentShape} className="size-4" />
+                  <span className="hidden xl:inline">{t('tools.pdfEditor.shapes.menu')}</span>
+                  <ChevronDown className="size-3 opacity-60" />
+                </button>
+                {shapesOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShapesOpen(false)} />
+                    <div
+                      role="menu"
+                      className="absolute left-0 top-full z-50 mt-1.5 w-72 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-[var(--shadow-lg)]"
+                    >
+                      {SHAPE_GROUPS.map((g) => (
+                        <div key={g.label} className="mb-2 last:mb-0">
+                          <p className="mb-1 px-1 text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)]">
+                            {g.label}
+                          </p>
+                          <div className="grid grid-cols-5 gap-1">
+                            {g.items.map((id) => {
+                              const on = shapeActive && currentShape === id
+                              const name = t(`tools.pdfEditor.shapes.${id}`)
+                              return (
+                                <button
+                                  key={id}
+                                  type="button"
+                                  role="menuitem"
+                                  title={name}
+                                  aria-label={name}
+                                  onClick={() => pickShape(id)}
+                                  className={cn(
+                                    'flex size-10 items-center justify-center rounded-lg transition-colors',
+                                    on
+                                      ? 'bg-[var(--color-accent-light)] text-[var(--color-accent)]'
+                                      : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-sunken)] hover:text-[var(--color-text-primary)]',
+                                  )}
+                                >
+                                  <ShapeIcon shape={id} className="size-5" />
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+              {toolBtn('edit-shape', BoxSelect, t('tools.pdfEditor.tools.editShape'))}
+              <ToolbarSeparator />
+              {toolBtn('draw', PenTool, t('tools.pdfEditor.tools.draw'))}
+              {toolBtn('highlight', Highlighter, t('tools.pdfEditor.tools.highlight'))}
+              {toolBtn('redact', Eraser, t('tools.pdfEditor.tools.redact'))}
+              <ToolbarSeparator />
+            </>
           )
-        })}
+        })()}
 
-        <ToolbarSeparator />
-
-        {/* Action tools: Image & Signature */}
         <button
           type="button"
           onClick={() => imageInputRef.current?.click()}
           title={t('tools.pdfEditor.tools.image')}
-          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text-primary)]"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-sunken)] hover:text-[var(--color-text-primary)]"
         >
-          <ImagePlus className="size-3.5" />
-          <span className="hidden lg:inline">{t('tools.pdfEditor.tools.image')}</span>
+          <ImagePlus className="size-4" />
+          <span className="hidden xl:inline">{t('tools.pdfEditor.tools.image')}</span>
         </button>
         <input
           ref={imageInputRef}
@@ -1416,21 +1512,19 @@ export default function PdfEditorPage() {
           className="sr-only"
           onChange={handleImagePick}
         />
-
         <button
           type="button"
           onClick={() => setSignModalOpen(true)}
           title={t('tools.pdfEditor.tools.sign')}
-          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text-primary)]"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-sunken)] hover:text-[var(--color-text-primary)]"
         >
-          <Signature className="size-3.5" />
-          <span className="hidden lg:inline">{t('tools.pdfEditor.tools.sign')}</span>
+          <Signature className="size-4" />
+          <span className="hidden xl:inline">{t('tools.pdfEditor.tools.sign')}</span>
         </button>
-
       </div>
 
       {/* ── Row 3: options of the active tool. Fixed height so the page below never jumps ── */}
-      <div className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-[var(--color-border)] bg-[var(--color-surface)] px-3 [&>*]:shrink-0">
+      <div className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 [&>*]:shrink-0">
         {tool === 'edit-text' && (
           <span className="px-1 text-xs font-medium text-[var(--color-accent)]">
             {t('tools.pdfEditor.props.editTextHint')}

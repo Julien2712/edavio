@@ -4,14 +4,14 @@ import type { ButtonHTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] disabled:pointer-events-none disabled:opacity-40 select-none',
+  'inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] disabled:pointer-events-none disabled:opacity-40 select-none',
   {
     variants: {
       variant: {
         primary:
-          'bg-[var(--color-accent)] text-white shadow-sm hover:bg-[var(--color-accent-hover)] active:scale-[.98]',
+          'bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] active:scale-[.98]',
         secondary:
-          'bg-[var(--color-surface-raised)] text-[var(--color-text-primary)] border border-[var(--color-border)] shadow-sm hover:bg-[var(--color-surface-sunken)] active:scale-[.98]',
+          'bg-[var(--color-surface-sunken)] text-[var(--color-text-primary)] hover:bg-[var(--color-border)] active:scale-[.98]',
         ghost:
           'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-text-primary)]',
         danger:

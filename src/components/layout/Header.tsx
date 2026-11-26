@@ -10,24 +10,20 @@ export function Header() {
   const available = ToolRegistry.list().filter((tool) => tool.status === 'available')
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4 sm:px-6">
-        {/* Logo */}
+    <header className="sticky top-0 z-40 border-b border-[var(--color-border)] bg-[var(--color-surface)]/90 backdrop-blur-md">
+      <div className="mx-auto flex h-12 max-w-7xl items-center gap-5 px-4 sm:px-6">
         <Link
           to="/"
-          className="flex shrink-0 items-center gap-2.5 font-semibold tracking-tight text-[var(--color-text-primary)] hover:opacity-80 transition-opacity"
+          className="flex shrink-0 items-center gap-2 text-[var(--color-text-primary)] transition-opacity hover:opacity-70"
         >
-          <div className="flex size-7 items-center justify-center rounded-lg bg-[var(--color-accent)] shadow-sm">
-            <img
-              src={`${import.meta.env.BASE_URL}logo-transparent.svg`}
-              alt=""
-              className="size-5"
-            />
-          </div>
-          <span className="text-sm font-bold">{t('app.name')}</span>
+          <span className="flex size-6 items-center justify-center rounded-md bg-[var(--color-accent)] text-[13px] font-bold leading-none text-white">
+            E
+          </span>
+          <span className="text-sm font-semibold tracking-tight">{t('app.name')}</span>
         </Link>
 
-        {/* Tool nav */}
+        <span className="h-4 w-px bg-[var(--color-border)]" aria-hidden />
+
         <nav className="flex flex-1 items-center gap-0.5 overflow-x-auto" aria-label="Tools">
           {available.map((tool) => (
             <NavLink
@@ -35,22 +31,21 @@ export function Header() {
               to={tool.route}
               className={({ isActive }) =>
                 cn(
-                  'inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors',
+                  'inline-flex items-center gap-2 whitespace-nowrap rounded-md px-2.5 py-1 text-[13px] transition-colors',
                   isActive
-                    ? 'bg-[var(--color-accent-light)] text-[var(--color-accent)] font-medium'
-                    : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-text-primary)]',
+                    ? 'bg-[var(--color-surface-sunken)] font-medium text-[var(--color-text-primary)]'
+                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
                 )
               }
             >
-              <tool.icon className="size-4 shrink-0" aria-hidden />
+              <tool.icon className="size-3.5 shrink-0" aria-hidden />
               <span className="hidden sm:inline">{t(tool.nameKey)}</span>
             </NavLink>
           ))}
         </nav>
 
-        {/* Privacy badge */}
         <span
-          className="hidden shrink-0 items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-1 text-xs text-[var(--color-text-tertiary)] md:inline-flex"
+          className="hidden shrink-0 items-center gap-1.5 text-xs text-[var(--color-text-tertiary)] md:inline-flex"
           title={t('privacy.local')}
         >
           <Lock className="size-3 shrink-0" aria-hidden />

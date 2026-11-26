@@ -107,6 +107,29 @@
         "uploadPrompt": "Choose an image (PNG, JPG)",
         "saved": "Saved signatures",
         "drawHint": "Draw your signature below"
+      },
+      "shapes": {
+        "menu": "Shapes",
+        "rect": "Rectangle",
+        "ellipse": "Circle",
+        "line": "Line",
+        "arrow": "Arrow",
+        "triangle": "Triangle",
+        "right-triangle": "Right triangle",
+        "diamond": "Diamond",
+        "pentagon": "Pentagon",
+        "hexagon": "Hexagon",
+        "octagon": "Octagon",
+        "star": "Star",
+        "star4": "4-point star",
+        "cross": "Cross",
+        "block-arrow": "Block arrow",
+        "chevron": "Chevron",
+        "trapezoid": "Trapezoid",
+        "parallelogram": "Parallelogram",
+        "basic": "Basic",
+        "lines": "Lines",
+        "more": "More shapes"
       }
     },
     "documentEditor": {

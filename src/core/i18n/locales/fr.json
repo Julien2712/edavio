@@ -107,6 +107,29 @@
         "uploadPrompt": "Choisir une image (PNG, JPG)",
         "saved": "Signatures enregistrées",
         "drawHint": "Dessinez votre signature ci-dessous"
+      },
+      "shapes": {
+        "menu": "Formes",
+        "rect": "Rectangle",
+        "ellipse": "Cercle",
+        "line": "Ligne",
+        "arrow": "Flèche",
+        "triangle": "Triangle",
+        "right-triangle": "Triangle rectangle",
+        "diamond": "Losange",
+        "pentagon": "Pentagone",
+        "hexagon": "Hexagone",
+        "octagon": "Octogone",
+        "star": "Étoile",
+        "star4": "Étoile 4 branches",
+        "cross": "Croix",
+        "block-arrow": "Flèche pleine",
+        "chevron": "Chevron",
+        "trapezoid": "Trapèze",
+        "parallelogram": "Parallélogramme",
+        "basic": "Basiques",
+        "lines": "Lignes",
+        "more": "Autres formes"
       }
     },
     "documentEditor": {

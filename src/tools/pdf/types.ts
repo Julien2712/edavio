@@ -7,11 +7,14 @@ export type EditorTool =
   | 'highlight'
   | 'rect'
   | 'ellipse'
+  | 'polygon'
   | 'line'
   | 'arrow'
   | 'redact'
   | 'image'
   | 'sign'
+
+import type { PolygonKind } from './shapeGeometry'
 
 export type FontFamily = 'Helvetica' | 'TimesRoman' | 'Courier'
 
@@ -54,7 +57,9 @@ export interface PathAnnotation extends BaseAnnotation {
 }
 
 export interface ShapeAnnotation extends BaseAnnotation {
-  type: 'rect' | 'ellipse' | 'redact'
+  type: 'rect' | 'ellipse' | 'redact' | 'polygon'
+  /** Which predefined shape, when type is 'polygon' */
+  polygon?: PolygonKind
   /**
    * The fill is painted underneath the page content (multiply blend), like the background
    * of a frame in the original PDF: the text inside the shape stays visible.
@@ -145,6 +150,8 @@ export interface ToolStyleConfig {
   italic: boolean
   strokeWidth: number
   highlightColor: string
+  /** Shape currently picked in the shapes menu */
+  polygonKind: PolygonKind
   redactColor: string
 }
 

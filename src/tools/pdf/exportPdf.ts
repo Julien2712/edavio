@@ -4,6 +4,17 @@ import {
   degreesToRadians,
   endText,
   LineCapStyle,
+  LineJoinStyle,
+  closePath,
+  endPath,
+  fill,
+  fillAndStroke,
+  lineTo,
+  moveTo,
+  setLineJoin,
+  setLineWidth,
+  setStrokingColor,
+  stroke,
   PDFDocument,
   popGraphicsState,
   pushGraphicsState,
@@ -21,6 +32,7 @@ import {
   type PDFPage,
 } from 'pdf-lib'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
+import { polygonPoints } from './shapeGeometry'
 import { baselineFromTop, lineHeightFactor, textPadding } from './fontInfo'
 import type { Annotation, FontFamily, PageEntry, Point } from './types'
 
@@ -287,6 +299,25 @@ export async function exportAnnotatedPdf(params: {
           borderOpacity: ann.opacity,
           blendMode: ann.underlay ? BlendMode.Multiply : undefined,
         })
+      } else if (ann.type === 'polygon') {
+        const pts = polygonPoints(ann.polygon ?? 'triangle', ann.x, ann.y, ann.width, ann.height).map(
+          ([px, py]) => vpToPdf(px, py),
+        )
+        const ops = [pushGraphicsState()]
+        const hasFill = !!ann.fillColor
+        const hasStroke = ann.strokeWidth > 0
+        if (hasFill) ops.push(setFillingColor(hexToRgb(ann.fillColor!)))
+        if (hasStroke) {
+          ops.push(setStrokingColor(hexToRgb(ann.color)), setLineWidth(ann.strokeWidth), setLineJoin(LineJoinStyle.Round))
+        }
+        pts.forEach(([px, py], i) => ops.push(i === 0 ? moveTo(px, py) : lineTo(px, py)))
+        ops.push(closePath())
+        if (hasFill && hasStroke) ops.push(fillAndStroke())
+        else if (hasFill) ops.push(fill())
+        else if (hasStroke) ops.push(stroke())
+        else ops.push(endPath())
+        ops.push(popGraphicsState())
+        outPage.pushOperators(...ops)
       } else if (ann.type === 'ellipse') {
         const [cx, cy] = vpToPdf(ann.x + ann.width / 2, ann.y + ann.height / 2)
         const swapped = totalRotation === 90 || totalRotation === 270
