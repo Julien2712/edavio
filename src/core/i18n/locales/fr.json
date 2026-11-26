@@ -19,10 +19,35 @@
     "subtitle": "Des outils puissants qui s'exécutent entièrement dans votre navigateur. Pas de téléversement, pas de compte, pas de traçage.",
     "tools": "Toutes les sections",
     "open": "Ouvrir l'outil",
+    "openFile": "Ouvrir un fichier",
+    "openTool": "Ouvrir {{tool}}",
+    "orDrop": "ou glisser-déposer",
     "comingSoon": "Bientôt disponible",
+    "chooseFormat": "Choisissez votre format",
+    "privacyNote": "Vos fichiers restent sur votre appareil. Aucun envoi de données, aucun compte requis.",
     "heroFeature1": "Sans internet",
     "heroFeature2": "Sans compte",
-    "heroFeature3": "Fichiers sur votre appareil"
+    "heroFeature3": "Rapide & local",
+    "pdf": {
+      "feat1": "Annoter & signer",
+      "feat2": "Modifier le texte",
+      "feat3": "Organiser les pages"
+    },
+    "docs": {
+      "feat1": "Format Word (.docx)",
+      "feat2": "Mise en forme riche",
+      "feat3": "Export PDF"
+    },
+    "excel": {
+      "feat1": "Format Excel (.xlsx)",
+      "feat2": "Formules & graphiques",
+      "feat3": "Tableaux dynamiques"
+    },
+    "ppt": {
+      "feat1": "Format PowerPoint (.pptx)",
+      "feat2": "Diapositives & transitions",
+      "feat3": "Export PDF"
+    }
   },
   "tools": {
     "pdfEditor": {

@@ -744,6 +744,16 @@ export default function PdfEditorPage() {
     [t],
   )
 
+  // ── Listen for file opened from the home-page launcher ────────────────────
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const file = (e as CustomEvent<{ file: File }>).detail?.file
+      if (file) void loadFile(file)
+    }
+    window.addEventListener('edavio:open-file', handler)
+    return () => window.removeEventListener('edavio:open-file', handler)
+  }, [loadFile])
+
   // ── Load active page proxy & dimensions ────────────────────────────────────
   useEffect(() => {
     if (!pdf || !currentEntry) return

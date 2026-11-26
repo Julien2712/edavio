@@ -19,10 +19,35 @@
     "subtitle": "Powerful document tools that run entirely in your browser. No uploads, no accounts, no tracking.",
     "tools": "All sections",
     "open": "Open tool",
+    "openFile": "Open a file",
+    "openTool": "Open {{tool}}",
+    "orDrop": "or drag & drop",
     "comingSoon": "Coming soon",
+    "chooseFormat": "Choose your format",
+    "privacyNote": "Your files stay on your device. No uploads, no account required.",
     "heroFeature1": "No internet needed",
     "heroFeature2": "No account required",
-    "heroFeature3": "Files stay on your device"
+    "heroFeature3": "Fast & local",
+    "pdf": {
+      "feat1": "Annotate & sign",
+      "feat2": "Edit text",
+      "feat3": "Organize pages"
+    },
+    "docs": {
+      "feat1": "Word format (.docx)",
+      "feat2": "Rich formatting",
+      "feat3": "PDF export"
+    },
+    "excel": {
+      "feat1": "Excel format (.xlsx)",
+      "feat2": "Formulas & charts",
+      "feat3": "Dynamic tables"
+    },
+    "ppt": {
+      "feat1": "PowerPoint format (.pptx)",
+      "feat2": "Slides & transitions",
+      "feat3": "PDF export"
+    }
   },
   "tools": {
     "pdfEditor": {
