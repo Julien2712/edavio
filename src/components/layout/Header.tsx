@@ -1,4 +1,4 @@
-import { Lock } from 'lucide-react'
+import { Home, Lock } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation } from 'react-router-dom'
 import { TOOL_SECTIONS } from '@/core/tools/types'
@@ -15,9 +15,16 @@ export function Header() {
       <div className="mx-auto flex h-12 max-w-7xl items-center gap-5 px-4 sm:px-6">
         <Link
           to="/"
-          className="shrink-0 text-[var(--color-text-primary)] transition-opacity hover:opacity-70"
+          aria-label={t('app.name')}
+          title={t('app.name')}
+          className={cn(
+            'shrink-0 rounded-md p-1.5 transition-colors',
+            pathname === '/'
+              ? 'bg-[var(--color-surface-sunken)] text-[var(--color-text-primary)]'
+              : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+          )}
         >
-          <span className="text-sm font-semibold tracking-tight">{t('app.name')}</span>
+          <Home className="size-4" aria-hidden />
         </Link>
 
         <span className="h-4 w-px bg-[var(--color-border)]" aria-hidden />
