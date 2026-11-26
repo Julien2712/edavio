@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { PDFDocument } from 'pdf-lib'
 import { TextLayer } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import {
@@ -13,6 +14,7 @@ import {
   ChevronRight,
   Download,
   Eraser,
+  FilePlus2,
   FileText,
   FolderOpen,
   Highlighter,
@@ -108,7 +110,7 @@ interface HistorySnapshot {
 
 type ZoomMode = 'custom' | 'fit-width' | 'fit-page'
 
-function DropZone({ onFile }: { onFile: (file: File) => void }) {
+function DropZone({ onFile, onNewBlank }: { onFile: (file: File) => void; onNewBlank: () => void }) {
   const { t } = useTranslation()
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -135,7 +137,7 @@ function DropZone({ onFile }: { onFile: (file: File) => void }) {
   )
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center p-8">
+    <div className="flex flex-1 flex-col items-center justify-center gap-5 p-8">
       <div
         onDragOver={(e) => {
           e.preventDefault()
@@ -183,6 +185,11 @@ function DropZone({ onFile }: { onFile: (file: File) => void }) {
 
         <p className="text-xs text-[var(--color-text-disabled)]">PDF</p>
       </div>
+
+      <Button variant="secondary" size="sm" onClick={onNewBlank} className="gap-2">
+        <FilePlus2 className="size-4" />
+        {t('tools.pdfEditor.newBlank')}
+      </Button>
 
       <input
         ref={inputRef}
@@ -790,16 +797,32 @@ export default function PdfEditorPage() {
     [t],
   )
 
+  const createBlankPdf = useCallback(async () => {
+    const doc = await PDFDocument.create()
+    doc.addPage([595.28, 841.89]) // A4
+    const bytes = await doc.save()
+    const file = new File([bytes.slice()], `${t('tools.pdfEditor.untitledFile')}.pdf`, {
+      type: 'application/pdf',
+    })
+    await loadFile(file)
+  }, [loadFile, t])
+
   // ── Load file passed via router state or custom event ─────────────────────
   useEffect(() => {
-    const stateFile = (location.state as { file?: File } | null)?.file
-    if (stateFile) {
+    const state = location.state as { file?: File; newBlank?: boolean } | null
+    if (state?.file) {
+      const f = state.file
       navigate(location.pathname, { replace: true, state: null })
       queueMicrotask(() => {
-        void loadFile(stateFile)
+        void loadFile(f)
+      })
+    } else if (state?.newBlank) {
+      navigate(location.pathname, { replace: true, state: null })
+      queueMicrotask(() => {
+        void createBlankPdf()
       })
     }
-  }, [location.state, location.pathname, navigate, loadFile])
+  }, [location.state, location.pathname, navigate, loadFile, createBlankPdf])
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -1257,7 +1280,7 @@ export default function PdfEditorPage() {
             {error}
           </div>
         )}
-        <DropZone onFile={loadFile} />
+        <DropZone onFile={loadFile} onNewBlank={() => void createBlankPdf()} />
       </div>
     )
   }

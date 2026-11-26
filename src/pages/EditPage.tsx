@@ -62,28 +62,28 @@ const EDIT_TOOLS: EditTool[] = [
     id: 'excel',
     nameKey: 'tools.spreadsheetEditor.name',
     descriptionKey: 'tools.spreadsheetEditor.description',
-    extensionLabel: 'XLSX · XLS',
+    extensionLabel: 'XLSX · XLS · CSV',
     color: 'from-emerald-500 to-teal-600',
     iconBg: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/60 dark:text-emerald-400',
-    borderHover: 'hover:border-emerald-400',
+    borderHover: 'hover:border-[var(--color-text-tertiary)]',
     icon: FileSpreadsheet,
     route: '/spreadsheets/edit',
-    accept: '.xls,.xlsx',
-    available: false,
+    accept: '.xlsx,.xls,.csv,.ods',
+    available: true,
     features: ['home.excel.feat1', 'home.excel.feat2', 'home.excel.feat3'],
   },
   {
     id: 'ppt',
     nameKey: 'tools.presentationEditor.name',
     descriptionKey: 'tools.presentationEditor.description',
-    extensionLabel: 'PPTX · PPT',
+    extensionLabel: 'PPTX',
     color: 'from-orange-500 to-red-500',
     iconBg: 'bg-orange-100 text-orange-600 dark:bg-orange-900/60 dark:text-orange-400',
-    borderHover: 'hover:border-orange-400',
+    borderHover: 'hover:border-[var(--color-text-tertiary)]',
     icon: Presentation,
     route: '/presentations/edit',
     accept: '.ppt,.pptx',
-    available: false,
+    available: true,
     features: ['home.ppt.feat1', 'home.ppt.feat2', 'home.ppt.feat3'],
   },
 ]
@@ -107,8 +107,12 @@ function EditToolCard({ tool }: { tool: EditTool }) {
 
   const handleOpen = useCallback(() => {
     if (!tool.available) return
+    if (tool.id === 'ppt') {
+      navigate(tool.route)
+      return
+    }
     fileInputRef.current?.click()
-  }, [tool.available])
+  }, [navigate, tool.available, tool.id, tool.route])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

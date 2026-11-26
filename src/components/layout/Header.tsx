@@ -33,9 +33,10 @@ export function Header() {
           {TOOL_SECTIONS.map((section) => {
             const tools = ToolRegistry.list().filter((tool) => tool.section === section && tool.component)
             const first = tools[0]
-            if (!first) return null
-            const to = section === 'edit' ? '/edit' : first.route
+            if (section !== 'create' && !first) return null
+            const to = section === 'create' ? '/create' : section === 'edit' ? '/edit' : first!.route
             const active =
+              (section === 'create' && pathname.startsWith('/create')) ||
               (section === 'edit' && pathname.startsWith('/edit')) ||
               tools.some((tool) => pathname.startsWith(tool.route))
             return (

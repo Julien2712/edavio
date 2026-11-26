@@ -63,6 +63,8 @@
       "dropzone": "Drop a PDF here",
       "dropzoneOr": "or",
       "browse": "Browse file",
+      "newBlank": "New blank PDF",
+      "untitledFile": "new-document",
       "loadError": "Could not load PDF. Make sure it is a valid PDF file.",
       "exportError": "Failed to export PDF.",
       "exportSuccess": "PDF exported successfully!",
@@ -203,11 +205,32 @@
     },
     "spreadsheetEditor": {
       "name": "Spreadsheet Editor",
-      "description": "Edit and analyze spreadsheets with formulas and charts."
+      "description": "Create and edit Excel spreadsheets (.xlsx, .csv) with formulas and multiple sheets.",
+      "dropzone": "Drop a spreadsheet here",
+      "newBlank": "New blank spreadsheet",
+      "untitled": "Untitled spreadsheet",
+      "sheet": "Sheet",
+      "addSheet": "Add sheet",
+      "renameSheet": "Rename sheet",
+      "rows": "rows",
+      "cols": "columns",
+      "formulaHint": "Value or formula (e.g. =SUM(A1:A5), =AVERAGE(B1:B4))",
+      "loadError": "Could not open this spreadsheet.",
+      "exportSuccess": "Spreadsheet exported successfully!"
     },
     "presentationEditor": {
       "name": "Presentation Editor",
-      "description": "Create and edit slide presentations with ease."
+      "description": "Create slide decks and export them directly to PowerPoint (.pptx).",
+      "untitled": "Untitled presentation",
+      "defaultTitle": "Presentation Title",
+      "defaultSubtitle": "Double-click to edit text",
+      "newText": "New text",
+      "slides": "Slides",
+      "addSlide": "New slide",
+      "slideHeading": "Slide Heading",
+      "slideBody": "Add your content here…",
+      "present": "Present",
+      "exportSuccess": "Presentation exported to .pptx!"
     },
     "documentReader": {
       "name": "Document reader",
@@ -232,16 +255,52 @@
     "back": "Back to tools"
   },
   "sections": {
+    "create": "Create",
     "edit": "Edit",
     "read": "Read",
     "compress": "Compress",
     "convert": "Convert"
   },
   "sectionHints": {
+    "create": "Create new files from scratch",
     "edit": "Edit your PDFs and documents",
     "read": "Open and browse your documents",
     "compress": "Make your files smaller",
     "convert": "Change the format of your files"
+  },
+  "createPage": {
+    "badge": "100% local · Instant creation",
+    "title": "What do you want to create today?",
+    "subtitle": "Start a blank PDF, rich document, Excel spreadsheet, or slide deck right on your device, then export in your preferred format.",
+    "cta": "Create now",
+    "pdf": {
+      "title": "Create a PDF",
+      "description": "Start with a blank A4 page: add text, shapes, drawings, images, signatures, and extra pages.",
+      "f1": "Blank A4 page",
+      "f2": "Text, shapes & signature",
+      "f3": "PDF export"
+    },
+    "docs": {
+      "title": "Create a Document",
+      "description": "Write in a rich editor with headings, lists, tables, images, and formatting.",
+      "f1": "Rich text editor",
+      "f2": "Tables & images",
+      "f3": "DOCX, MD, HTML, PDF export"
+    },
+    "excel": {
+      "title": "Create a Spreadsheet (Excel)",
+      "description": "Organize data with formulas (=SUM, =AVERAGE, =IF…), cell styles, and multiple sheets.",
+      "f1": "Built-in formulas",
+      "f2": "Multi-sheet",
+      "f3": "XLSX & CSV export"
+    },
+    "ppt": {
+      "title": "Create a Presentation (Slides)",
+      "description": "Design 16:9 slides with text boxes, shapes, images, themes, and fullscreen slideshow mode.",
+      "f1": "16:9 slides",
+      "f2": "Slideshow mode",
+      "f3": "PowerPoint (.pptx) export"
+    }
   },
   "planned": {
     "badge": "Coming soon",

@@ -11,9 +11,9 @@ export type ToolCategory =
   | 'conversion'
 
 /** Top-level sections shown in the navigation */
-export type ToolSection = 'edit' | 'read' | 'compress' | 'convert'
+export type ToolSection = 'create' | 'edit' | 'read' | 'compress' | 'convert'
 
-export const TOOL_SECTIONS: readonly ToolSection[] = ['edit', 'read', 'compress', 'convert']
+export const TOOL_SECTIONS: readonly ToolSection[] = ['create', 'edit', 'read', 'compress', 'convert']
 
 export type ToolStatus = 'available' | 'coming-soon'
 

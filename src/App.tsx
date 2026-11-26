@@ -1,5 +1,6 @@
 import { createHashRouter, RouterProvider } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
+import CreatePage from '@/pages/CreatePage'
 import EditPage from '@/pages/EditPage'
 import HomePage from '@/pages/HomePage'
 import NotFoundPage from '@/pages/NotFoundPage'
@@ -18,6 +19,7 @@ const router = createHashRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <HomePage /> },
+      { path: '/create', element: <CreatePage /> },
       { path: '/edit', element: <EditPage /> },
       ...toolRoutes,
       { path: '*', element: <NotFoundPage /> },

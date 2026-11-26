@@ -63,6 +63,8 @@
       "dropzone": "Déposez un PDF ici",
       "dropzoneOr": "ou",
       "browse": "Parcourir",
+      "newBlank": "Nouveau PDF vierge",
+      "untitledFile": "nouveau-document",
       "loadError": "Impossible de charger le PDF. Vérifiez que c'est un fichier PDF valide.",
       "exportError": "Erreur lors de l'exportation du PDF.",
       "exportSuccess": "PDF exporté avec succès !",
@@ -203,11 +205,32 @@
     },
     "spreadsheetEditor": {
       "name": "Éditeur de feuilles de calcul",
-      "description": "Modifiez et analysez des tableurs avec formules et graphiques."
+      "description": "Créez et modifiez des tableurs Excel (.xlsx, .csv) avec formules et feuilles multiples.",
+      "dropzone": "Déposez un tableur ici",
+      "newBlank": "Nouveau tableur vierge",
+      "untitled": "Nouveau tableur",
+      "sheet": "Feuille",
+      "addSheet": "Ajouter une feuille",
+      "renameSheet": "Renommer la feuille",
+      "rows": "lignes",
+      "cols": "colonnes",
+      "formulaHint": "Valeur ou formule (ex: =SOMME(A1:A5), =MOYENNE(B1:B4))",
+      "loadError": "Impossible de lire ce tableur.",
+      "exportSuccess": "Tableur exporté avec succès !"
     },
     "presentationEditor": {
       "name": "Éditeur de présentations",
-      "description": "Créez et modifiez des présentations de diapositives facilement."
+      "description": "Créez des présentations de diapositives et exportez-les en PowerPoint (.pptx).",
+      "untitled": "Nouvelle présentation",
+      "defaultTitle": "Titre de la présentation",
+      "defaultSubtitle": "Double-cliquez pour modifier le texte",
+      "newText": "Nouveau texte",
+      "slides": "Diapos",
+      "addSlide": "Nouvelle diapositive",
+      "slideHeading": "Titre de la diapositive",
+      "slideBody": "Ajoutez vos idées ici…",
+      "present": "Présenter",
+      "exportSuccess": "Présentation exportée en .pptx !"
     },
     "documentReader": {
       "name": "Lecteur de documents",
@@ -232,16 +255,52 @@
     "back": "Retour aux outils"
   },
   "sections": {
+    "create": "Création",
     "edit": "Édition",
     "read": "Lecture",
     "compress": "Compression",
     "convert": "Conversion"
   },
   "sectionHints": {
+    "create": "Créer de nouveaux fichiers de zéro",
     "edit": "Modifier vos PDF et documents",
     "read": "Ouvrir et parcourir vos documents",
     "compress": "Réduire le poids de vos fichiers",
     "convert": "Changer le format de vos fichiers"
+  },
+  "createPage": {
+    "badge": "100 % local · Création instantanée",
+    "title": "Que voulez-vous créer aujourd'hui ?",
+    "subtitle": "Créez un PDF, un document texte, un tableur Excel ou un diaporama directement sur votre appareil, puis exportez-le dans le format de votre choix.",
+    "cta": "Créer maintenant",
+    "pdf": {
+      "title": "Créer un PDF",
+      "description": "Démarrez avec une page A4 vierge : ajoutez texte, formes, dessins, images, signatures et pages.",
+      "f1": "Page A4 vierge",
+      "f2": "Texte, formes & signature",
+      "f3": "Export PDF"
+    },
+    "docs": {
+      "title": "Créer un Document",
+      "description": "Rédigez dans un éditeur riche avec titres, listes, tableaux, images et styles.",
+      "f1": "Éditeur riche",
+      "f2": "Tableaux & images",
+      "f3": "Export DOCX, MD, HTML, PDF"
+    },
+    "excel": {
+      "title": "Créer un Tableur (Excel)",
+      "description": "Organisez vos données avec formules (=SOMME, =MOYENNE, =SI…), couleurs et feuilles multiples.",
+      "f1": "Formules intégrées",
+      "f2": "Multi-feuilles",
+      "f3": "Export XLSX & CSV"
+    },
+    "ppt": {
+      "title": "Créer une Présentation (Diapo)",
+      "description": "Concevez vos diapositives 16:9 avec textes, formes, images, thèmes et mode plein écran.",
+      "f1": "Diapos 16:9",
+      "f2": "Mode diaporama",
+      "f3": "Export PowerPoint (.pptx)"
+    }
   },
   "planned": {
     "badge": "Bientôt disponible",
