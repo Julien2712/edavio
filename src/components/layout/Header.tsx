@@ -14,11 +14,8 @@ export function Header() {
       <div className="mx-auto flex h-12 max-w-7xl items-center gap-5 px-4 sm:px-6">
         <Link
           to="/"
-          className="flex shrink-0 items-center gap-2 text-[var(--color-text-primary)] transition-opacity hover:opacity-70"
+          className="shrink-0 text-[var(--color-text-primary)] transition-opacity hover:opacity-70"
         >
-          <span className="flex size-6 items-center justify-center rounded-md bg-[var(--color-text-primary)] text-[13px] font-bold leading-none text-[var(--color-surface)]">
-            E
-          </span>
           <span className="text-sm font-semibold tracking-tight">{t('app.name')}</span>
         </Link>
 
