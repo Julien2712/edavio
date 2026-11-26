@@ -1158,7 +1158,7 @@ export default function PdfEditorPage() {
     selectedAnn && 'fillColor' in selectedAnn ? selectedAnn.fillColor : styleConfig.fillColor
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden" style={{ height: 'calc(100dvh - 3.5rem)' }}>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* ── Row 1: Document, Navigation, Zoom, Export ── */}
       <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5">
         <Button
@@ -1804,7 +1804,7 @@ export default function PdfEditorPage() {
       )}
 
       {/* ── Main Workspace: Sidebar + Canvas Viewport ── */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {showSidebar && pdf && (
           <PageThumbnails
             doc={pdf.doc}
@@ -1825,7 +1825,7 @@ export default function PdfEditorPage() {
 
         <div
           ref={viewportRef}
-          className="flex flex-1 flex-col items-center overflow-auto bg-[var(--color-surface-sunken)] px-6 py-8"
+          className="flex min-w-0 flex-1 flex-col items-center overflow-auto overscroll-contain bg-[var(--color-surface-sunken)] px-6 py-8"
         >
           {currentEntry && (
             <div

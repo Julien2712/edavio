@@ -15,9 +15,9 @@ function PageLoader() {
 
 export function AppShell() {
   return (
-    <div className="flex min-h-dvh flex-col bg-[var(--color-surface)]">
+    <div className="flex h-dvh flex-col overflow-hidden bg-[var(--color-surface)]">
       <Header />
-      <main className="flex flex-1 flex-col">
+      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <Suspense fallback={<PageLoader />}>
           <Outlet />
         </Suspense>

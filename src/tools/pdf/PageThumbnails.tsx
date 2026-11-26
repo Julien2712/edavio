@@ -109,7 +109,7 @@ export function PageThumbnails({
         </button>
       </div>
 
-      <div className="flex-1 space-y-2.5 overflow-y-auto p-2.5">
+      <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain p-2.5">
         {pages.map((entry, idx) => {
           const active = idx === currentIndex
           const count = annotations.filter((a) => a.pageId === entry.id).length
