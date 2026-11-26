@@ -373,6 +373,7 @@ export default function PdfEditorPage() {
   const suppressionsRef = useRef<Suppression[]>(suppressions)
   const pdfRef = useRef<PdfState | null>(pdf)
   const syncSeqRef = useRef(0)
+  const pristinePdfTextRef = useRef<TextAnnotation | null>(null)
 
   useEffect(() => {
     annotationsRef.current = annotations
@@ -578,6 +579,7 @@ export default function PdfEditorPage() {
       annotationsRef.current = nextAnns
       setAnnotations(nextAnns)
       pushHistory(nextAnns, nextSuppressions)
+      pristinePdfTextRef.current = newText
       setSelectedId(newText.id)
       setEditingTextId(newText.id)
 
@@ -631,8 +633,49 @@ export default function PdfEditorPage() {
   )
 
   const commitHistory = useCallback(() => {
+    const pristine = pristinePdfTextRef.current
+    if (pristine) {
+      pristinePdfTextRef.current = null
+      const current = annotationsRef.current.find((a) => a.id === pristine.id)
+      if (
+        current &&
+        current.type === 'text' &&
+        current.text === pristine.text &&
+        current.color === pristine.color &&
+        current.fontFamily === pristine.fontFamily &&
+        current.fontSize === pristine.fontSize &&
+        current.bold === pristine.bold &&
+        current.italic === pristine.italic
+      ) {
+        // Zero edits made: revert the replacement so the original PDF text keeps its exact font, size, and color
+        const nextAnns = annotationsRef.current.filter((a) => a.id !== pristine.id)
+        annotationsRef.current = nextAnns
+        setAnnotations(nextAnns)
+        setSelectedId((prev) => (prev === pristine.id ? null : prev))
+
+        const hadSup =
+          !!pristine.suppressionId &&
+          suppressionsRef.current.some((s) => s.id === pristine.suppressionId)
+        if (hadSup) {
+          const nextSup = suppressionsRef.current.filter((s) => s.id !== pristine.suppressionId)
+          suppressionsRef.current = nextSup
+          setSuppressions(nextSup)
+          void syncWorkingPdf(nextSup)
+        }
+
+        setHistory((prev) => {
+          if (historyIdx > 0) {
+            const trimmed = prev.slice(0, historyIdx)
+            setHistoryIdx(trimmed.length - 1)
+            return trimmed
+          }
+          return prev
+        })
+        return
+      }
+    }
     pushHistory(annotationsRef.current)
-  }, [pushHistory])
+  }, [historyIdx, pushHistory, syncWorkingPdf])
 
   const deleteAnnotation = useCallback(
     (id: string) => {
