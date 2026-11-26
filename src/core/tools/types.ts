@@ -1,7 +1,19 @@
 import type { ComponentType, LazyExoticComponent } from 'react'
 import type { LucideIcon } from 'lucide-react'
 
-export type ToolCategory = 'pdf' | 'documents' | 'spreadsheets' | 'presentations'
+export type ToolCategory =
+  | 'pdf'
+  | 'documents'
+  | 'spreadsheets'
+  | 'presentations'
+  | 'reader'
+  | 'compression'
+  | 'conversion'
+
+/** Top-level sections shown in the navigation */
+export type ToolSection = 'edit' | 'read' | 'compress' | 'convert'
+
+export const TOOL_SECTIONS: readonly ToolSection[] = ['edit', 'read', 'compress', 'convert']
 
 export type ToolStatus = 'available' | 'coming-soon'
 
@@ -13,6 +25,8 @@ export interface ToolModule {
   /** Stable unique identifier, e.g. "pdf-editor". */
   id: string
   category: ToolCategory
+  /** Navigation section this tool belongs to. */
+  section: ToolSection
   /** i18n key for the display name. */
   nameKey: string
   /** i18n key for the short description. */

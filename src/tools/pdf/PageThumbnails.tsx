@@ -143,9 +143,9 @@ export function PageThumbnails({
                 )}
               </div>
 
-              {/* Hover actions */}
+              {/* Page actions (always visible) */}
               <div
-                className="mt-1.5 hidden items-center justify-center gap-0.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5 shadow-sm group-hover:flex"
+                className="mt-1.5 flex items-center justify-center gap-0.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5"
                 onClick={(e) => e.stopPropagation()}
               >
                 <button

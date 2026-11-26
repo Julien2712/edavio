@@ -17,7 +17,7 @@
   "home": {
     "title": "Modifiez vos documents, en toute confidentialité.",
     "subtitle": "Des outils puissants qui s'exécutent entièrement dans votre navigateur. Pas de téléversement, pas de compte, pas de traçage.",
-    "tools": "Outils disponibles",
+    "tools": "Toutes les sections",
     "open": "Ouvrir l'outil",
     "comingSoon": "Bientôt disponible",
     "heroFeature1": "Sans internet",
@@ -143,11 +143,103 @@
     "presentationEditor": {
       "name": "Éditeur de présentations",
       "description": "Créez et modifiez des présentations de diapositives facilement."
+    },
+    "documentReader": {
+      "name": "Lecteur de documents",
+      "description": "Ouvrez et parcourez vos documents dans une vue de lecture confortable."
+    },
+    "pdfCompressor": {
+      "name": "Compression de PDF",
+      "description": "Réduisez le poids de vos PDF sans quitter votre ordinateur."
+    },
+    "imageConverter": {
+      "name": "Convertir des images",
+      "description": "Passez d'un format d'image à un autre : PNG, JPG, WebP et plus."
+    },
+    "documentConverter": {
+      "name": "Convertir des documents",
+      "description": "Transformez vos documents : PDF vers Word, Word vers PDF, etc."
     }
   },
   "notFound": {
     "title": "Page introuvable",
     "subtitle": "La page que vous cherchez n'existe pas.",
     "back": "Retour aux outils"
+  },
+  "sections": {
+    "edit": "Édition",
+    "read": "Lecture",
+    "compress": "Compression",
+    "convert": "Conversion"
+  },
+  "sectionHints": {
+    "edit": "Modifier vos PDF et documents",
+    "read": "Ouvrir et parcourir vos documents",
+    "compress": "Réduire le poids de vos fichiers",
+    "convert": "Changer le format de vos fichiers"
+  },
+  "planned": {
+    "badge": "Bientôt disponible",
+    "notice": "Cette fonction n'est pas encore active. L'interface est déjà là, elle sera branchée dans une prochaine version.",
+    "dropTitle": "Déposez vos fichiers ici",
+    "dropHint": "ou cliquez pour parcourir · tout reste sur votre appareil",
+    "accepted": "Formats acceptés",
+    "options": "Options",
+    "planned": "Prévu",
+    "run": "Lancer",
+    "back": "Retour à l'accueil",
+    "reader": {
+      "toolbar": [
+        "Rechercher",
+        "Zoom",
+        "Page"
+      ],
+      "outline": "Plan du document",
+      "features": [
+        "Ouvrir PDF, Word, Excel, PowerPoint et EPUB",
+        "Recherche dans le texte et signets",
+        "Mode sombre et mode lecture",
+        "Impression et copie de texte"
+      ]
+    },
+    "compress": {
+      "level": "Niveau de compression",
+      "light": "Léger",
+      "lightHint": "Qualité quasi identique",
+      "balanced": "Équilibré",
+      "balancedHint": "Le meilleur compromis",
+      "max": "Maximum",
+      "maxHint": "Fichier le plus petit",
+      "downscale": "Réduire la résolution des images",
+      "metadata": "Supprimer les métadonnées",
+      "before": "Avant",
+      "after": "Après (estimé)",
+      "features": [
+        "Compression de plusieurs PDF à la fois",
+        "Aperçu du gain avant d'enregistrer",
+        "Choix du niveau de qualité"
+      ]
+    },
+    "image": {
+      "format": "Format de sortie",
+      "quality": "Qualité",
+      "resize": "Redimensionner",
+      "batch": "Traitement par lot",
+      "features": [
+        "PNG, JPG, WebP, AVIF, GIF, BMP, ICO",
+        "Conversion de plusieurs images d'un coup",
+        "Réglage de la qualité et de la taille"
+      ]
+    },
+    "doc": {
+      "from": "Depuis",
+      "to": "Vers",
+      "pairs": "Conversions prévues",
+      "features": [
+        "Word, Excel et PowerPoint vers PDF",
+        "PDF vers Word, images ou texte",
+        "Texte, Markdown et HTML vers PDF"
+      ]
+    }
   }
 }

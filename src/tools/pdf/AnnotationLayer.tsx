@@ -17,6 +17,7 @@ import type {
   Annotation,
   DetectedTextItem,
   EditorTool,
+  ImageAnnotation,
   LineAnnotation,
   PathAnnotation,
   PdfShape,
@@ -864,6 +865,40 @@ export function AnnotationLayer({
     return null
   }
 
+  /** Turns an image of the PDF into a movable / resizable image (cropped from a sharp render) */
+  const makeImageEditable = async (v: ShapeView) => {
+    if (!pdfjsPage) return
+    const totalRot = (((pdfjsPage.rotate + userRotation) % 360 + 360) % 360) as 0 | 90 | 180 | 270
+    const k = 3
+    const vp = pdfjsPage.getViewport({ scale: k, rotation: totalRot })
+    const full = document.createElement('canvas')
+    full.width = Math.ceil(vp.width)
+    full.height = Math.ceil(vp.height)
+    const fctx = full.getContext('2d')
+    if (!fctx) return
+    await pdfjsPage.render({ canvasContext: fctx, viewport: vp, canvas: full }).promise
+    const sx = Math.max(0, Math.floor(v.x * k))
+    const sy = Math.max(0, Math.floor(v.y * k))
+    const sw = Math.max(1, Math.min(full.width - sx, Math.ceil(v.w * k)))
+    const sh = Math.max(1, Math.min(full.height - sy, Math.ceil(v.h * k)))
+    const crop = document.createElement('canvas')
+    crop.width = sw
+    crop.height = sh
+    crop.getContext('2d')?.drawImage(full, sx, sy, sw, sh, 0, 0, sw, sh)
+    const ann: ImageAnnotation = {
+      id: uid(),
+      pageId,
+      type: 'image',
+      x: v.x,
+      y: v.y,
+      width: v.w,
+      height: v.h,
+      dataUrl: crop.toDataURL('image/png'),
+      aspectRatio: sw / sh,
+    }
+    onReplacePdfShape(v.shape, ann)
+  }
+
   return (
     <>
       {/* Fills of converted PDF shapes, painted under the page text (multiply blend) */}
@@ -951,6 +986,7 @@ export function AnnotationLayer({
             // With the Select tool only borders / lines can be grabbed, so that text inside a
             // framed box stays selectable. The "Edit shape" tool picks the whole area.
             if (!everything && v.shape.kind === 'path') return null
+            const isImage = v.shape.kind === 'image'
             const hit = 10 / scale
             const pick = (e: React.PointerEvent) => {
               e.stopPropagation()
@@ -980,7 +1016,7 @@ export function AnnotationLayer({
                 />
               )
             }
-            if (everything) {
+            if (everything || isImage) {
               return (
                 <rect
                   key={v.shape.id}
@@ -1046,9 +1082,13 @@ export function AnnotationLayer({
           {selectedShapeView.shape.kind !== 'path' && (
             <button
               type="button"
-              onClick={() =>
+              onClick={() => {
+                if (selectedShapeView.shape.kind === 'image') {
+                  void makeImageEditable(selectedShapeView)
+                  return
+                }
                 onReplacePdfShape(selectedShapeView.shape, annotationFromShape(selectedShapeView))
-              }
+              }}
               title={t('tools.pdfEditor.props.makeEditable')}
               className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-text-primary)]"
             >

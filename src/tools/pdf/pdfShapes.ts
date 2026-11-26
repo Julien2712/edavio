@@ -328,6 +328,29 @@ function walkContent(p: WalkParams): { output: string; changed: boolean } {
         const resolved = xobjDict.lookup(PDFName.of(rawName))
         if (!(resolved instanceof PDFRawStream)) break
         const subtype = resolved.dict.get(PDFName.of('Subtype'))
+        if (subtype instanceof PDFName && subtype.decodeText() === 'Image') {
+          // An image fills the unit square transformed by the current matrix
+          const corners = [
+            applyMatrix(st.ctm, 0, 0),
+            applyMatrix(st.ctm, 1, 0),
+            applyMatrix(st.ctm, 1, 1),
+            applyMatrix(st.ctm, 0, 1),
+          ]
+          const xs = corners.map((c) => c[0])
+          const ys = corners.map((c) => c[1])
+          const img: RawShape = {
+            kind: 'image',
+            paint: 'fill',
+            box: { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) },
+            strokeColor: null,
+            fillColor: null,
+            strokeWidth: 0,
+          }
+          if (img.box.x1 - img.box.x0 > EPS && img.box.y1 - img.box.y0 > EPS && p.onShape(img)) {
+            replacements.push({ start: nameTok.start, end: tok.end, text: '' })
+          }
+          break
+        }
         if (!(subtype instanceof PDFName) || subtype.decodeText() !== 'Form') break
 
         const key = refOrStream instanceof PDFRef ? refOrStream.toString() : `inline:${rawName}`
@@ -650,7 +673,9 @@ export async function extractPageShapes(
   if (raw.length > MAX_SHAPES) return []
   // Ids come from the geometry so a selection survives a reload of the working PDF
   const seen = new Map<string, number>()
-  return groupArrowHeads(groupFrames(raw)).map((shape) => {
+  const images = raw.filter((r) => r.kind === 'image')
+  const vectors = raw.filter((r) => r.kind !== 'image')
+  return [...groupArrowHeads(groupFrames(vectors)), ...images].map((shape) => {
     const b = shape.box
     const base = `${shape.kind}:${b.x0.toFixed(1)},${b.y0.toFixed(1)},${b.x1.toFixed(1)},${b.y1.toFixed(1)}`
     const n = seen.get(base) ?? 0

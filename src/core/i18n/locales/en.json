@@ -17,7 +17,7 @@
   "home": {
     "title": "Edit your documents, privately.",
     "subtitle": "Powerful document tools that run entirely in your browser. No uploads, no accounts, no tracking.",
-    "tools": "Available tools",
+    "tools": "All sections",
     "open": "Open tool",
     "comingSoon": "Coming soon",
     "heroFeature1": "No internet needed",
@@ -143,11 +143,103 @@
     "presentationEditor": {
       "name": "Presentation Editor",
       "description": "Create and edit slide presentations with ease."
+    },
+    "documentReader": {
+      "name": "Document reader",
+      "description": "Open and browse your documents in a comfortable reading view."
+    },
+    "pdfCompressor": {
+      "name": "PDF compression",
+      "description": "Make your PDFs smaller without leaving your computer."
+    },
+    "imageConverter": {
+      "name": "Convert images",
+      "description": "Switch between image formats: PNG, JPG, WebP and more."
+    },
+    "documentConverter": {
+      "name": "Convert documents",
+      "description": "Transform your documents: PDF to Word, Word to PDF, and more."
     }
   },
   "notFound": {
     "title": "Page not found",
     "subtitle": "The page you're looking for doesn't exist.",
     "back": "Back to tools"
+  },
+  "sections": {
+    "edit": "Edit",
+    "read": "Read",
+    "compress": "Compress",
+    "convert": "Convert"
+  },
+  "sectionHints": {
+    "edit": "Edit your PDFs and documents",
+    "read": "Open and browse your documents",
+    "compress": "Make your files smaller",
+    "convert": "Change the format of your files"
+  },
+  "planned": {
+    "badge": "Coming soon",
+    "notice": "This feature is not active yet. The interface is already here and will be connected in a future version.",
+    "dropTitle": "Drop your files here",
+    "dropHint": "or click to browse · everything stays on your device",
+    "accepted": "Accepted formats",
+    "options": "Options",
+    "planned": "Planned",
+    "run": "Start",
+    "back": "Back to home",
+    "reader": {
+      "toolbar": [
+        "Search",
+        "Zoom",
+        "Page"
+      ],
+      "outline": "Document outline",
+      "features": [
+        "Open PDF, Word, Excel, PowerPoint and EPUB",
+        "Text search and bookmarks",
+        "Dark mode and reading mode",
+        "Printing and text copy"
+      ]
+    },
+    "compress": {
+      "level": "Compression level",
+      "light": "Light",
+      "lightHint": "Almost identical quality",
+      "balanced": "Balanced",
+      "balancedHint": "Best trade-off",
+      "max": "Maximum",
+      "maxHint": "Smallest file",
+      "downscale": "Downscale images",
+      "metadata": "Remove metadata",
+      "before": "Before",
+      "after": "After (estimated)",
+      "features": [
+        "Compress several PDFs at once",
+        "Preview the savings before saving",
+        "Choose the quality level"
+      ]
+    },
+    "image": {
+      "format": "Output format",
+      "quality": "Quality",
+      "resize": "Resize",
+      "batch": "Batch processing",
+      "features": [
+        "PNG, JPG, WebP, AVIF, GIF, BMP, ICO",
+        "Convert several images at once",
+        "Adjust quality and size"
+      ]
+    },
+    "doc": {
+      "from": "From",
+      "to": "To",
+      "pairs": "Planned conversions",
+      "features": [
+        "Word, Excel and PowerPoint to PDF",
+        "PDF to Word, images or text",
+        "Text, Markdown and HTML to PDF"
+      ]
+    }
   }
 }

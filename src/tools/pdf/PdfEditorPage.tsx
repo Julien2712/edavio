@@ -101,6 +101,8 @@ interface PdfState {
 interface HistorySnapshot {
   annotations: Annotation[]
   suppressions: Suppression[]
+  /** Page order / rotation at that moment (page operations are undoable too) */
+  pages?: PageEntry[]
 }
 
 type ZoomMode = 'custom' | 'fit-width' | 'fit-page'
@@ -335,6 +337,7 @@ export default function PdfEditorPage() {
   const [suppressions, setSuppressions] = useState<Suppression[]>([])
   const [history, setHistory] = useState<HistorySnapshot[]>([{ annotations: [], suppressions: [] }])
   const [historyIdx, setHistoryIdx] = useState(0)
+  const pagesRef = useRef<PageEntry[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [editingTextId, setEditingTextId] = useState<string | null>(null)
   const [signModalOpen, setSignModalOpen] = useState(false)
@@ -432,12 +435,16 @@ export default function PdfEditorPage() {
 
   // ── History helpers ────────────────────────────────────────────────────────
   const pushHistory = useCallback(
-    (nextAnns: Annotation[], nextSuppressions: Suppression[] = suppressionsRef.current) => {
+    (
+      nextAnns: Annotation[],
+      nextSuppressions: Suppression[] = suppressionsRef.current,
+      nextPages: PageEntry[] = pagesRef.current,
+    ) => {
       setHistory((prev) => {
         const sliced = prev.slice(0, historyIdx + 1)
         const updated = [
           ...sliced,
-          { annotations: nextAnns, suppressions: nextSuppressions },
+          { annotations: nextAnns, suppressions: nextSuppressions, pages: nextPages },
         ].slice(-50)
         setHistoryIdx(updated.length - 1)
         return updated
@@ -455,9 +462,15 @@ export default function PdfEditorPage() {
     setHistoryIdx(nextIdx)
     setAnnotations(snap.annotations)
     setSuppressions(snap.suppressions)
+    if (snap.pages) {
+      setPages(snap.pages)
+      pagesRef.current = snap.pages
+      setCurrentIndex((i) => Math.min(i, snap.pages!.length - 1))
+    }
     annotationsRef.current = snap.annotations
     suppressionsRef.current = snap.suppressions
     setSelectedId(null)
+    setSelectedShapeId(null)
     setEditingTextId(null)
     if (snap.suppressions.length !== prevSupCount) {
       void syncWorkingPdf(snap.suppressions)
@@ -473,9 +486,15 @@ export default function PdfEditorPage() {
     setHistoryIdx(nextIdx)
     setAnnotations(snap.annotations)
     setSuppressions(snap.suppressions)
+    if (snap.pages) {
+      setPages(snap.pages)
+      pagesRef.current = snap.pages
+      setCurrentIndex((i) => Math.min(i, snap.pages!.length - 1))
+    }
     annotationsRef.current = snap.annotations
     suppressionsRef.current = snap.suppressions
     setSelectedId(null)
+    setSelectedShapeId(null)
     setEditingTextId(null)
     if (snap.suppressions.length !== prevSupCount) {
       void syncWorkingPdf(snap.suppressions)
@@ -713,6 +732,9 @@ export default function PdfEditorPage() {
           name: file.name,
         })
         setPages(entries)
+        pagesRef.current = entries
+        setHistory([{ annotations: [], suppressions: [], pages: entries }])
+        setHistoryIdx(0)
       } catch {
         setError(t('tools.pdfEditor.loadError'))
       } finally {
@@ -832,15 +854,27 @@ export default function PdfEditorPage() {
   )
 
   // ── Page management ────────────────────────────────────────────────────────
-  const rotatePage = useCallback((idx: number) => {
-    setPages((prev) =>
-      prev.map((p, i) =>
-        i === idx
-          ? { ...p, userRotation: ((p.userRotation + 90) % 360) as 0 | 90 | 180 | 270 }
-          : p,
-      ),
-    )
-  }, [])
+  const commitPages = useCallback(
+    (next: PageEntry[], nextAnns: Annotation[] = annotationsRef.current) => {
+      pagesRef.current = next
+      setPages(next)
+      pushHistory(nextAnns, suppressionsRef.current, next)
+    },
+    [pushHistory],
+  )
+
+  const rotatePage = useCallback(
+    (idx: number) => {
+      commitPages(
+        pagesRef.current.map((p, i) =>
+          i === idx
+            ? { ...p, userRotation: ((p.userRotation + 90) % 360) as 0 | 90 | 180 | 270 }
+            : p,
+        ),
+      )
+    },
+    [commitPages],
+  )
 
   const duplicatePage = useCallback(
     (idx: number) => {
@@ -852,23 +886,18 @@ export default function PdfEditorPage() {
         .filter((a) => a.pageId === target.id)
         .map((a) => ({ ...a, id: uid(), pageId: newPageId }))
 
-      setPages((prev) => {
-        const next = [...prev]
-        next.splice(idx + 1, 0, clone)
-        return next
-      })
-      if (pageAnns.length > 0) {
-        const nextAnns = [...annotationsRef.current, ...pageAnns]
-        annotationsRef.current = nextAnns
-        setAnnotations(nextAnns)
-        pushHistory(nextAnns)
-      }
+      const nextPages = [...pagesRef.current]
+      nextPages.splice(idx + 1, 0, clone)
+      const nextAnns = [...annotationsRef.current, ...pageAnns]
+      annotationsRef.current = nextAnns
+      setAnnotations(nextAnns)
+      commitPages(nextPages, nextAnns)
       setSelectedId(null)
       setEditingTextId(null)
       setCurrentIndex(idx + 1)
       setPageInput(String(idx + 2))
     },
-    [pages, pushHistory],
+    [pages, commitPages],
   )
 
   const addBlankPage = useCallback(() => {
@@ -881,47 +910,45 @@ export default function PdfEditorPage() {
       baseHeight: refPage?.baseHeight ?? 842,
     }
     const insertIdx = currentIndex + 1
-    setPages((prev) => {
-      const next = [...prev]
-      next.splice(insertIdx, 0, newPage)
-      return next
-    })
+    const nextPages = [...pagesRef.current]
+    nextPages.splice(insertIdx, 0, newPage)
+    commitPages(nextPages)
     setSelectedId(null)
     setEditingTextId(null)
     setCurrentIndex(insertIdx)
     setPageInput(String(insertIdx + 1))
-  }, [pages, currentIndex])
+  }, [pages, currentIndex, commitPages])
 
   const deletePage = useCallback(
     (idx: number) => {
       if (pages.length <= 1) return
       const removed = pages[idx]
       if (!removed) return
-      setPages((prev) => prev.filter((_, i) => i !== idx))
       const nextAnns = annotationsRef.current.filter((a) => a.pageId !== removed.id)
       annotationsRef.current = nextAnns
       setAnnotations(nextAnns)
-      pushHistory(nextAnns)
+      commitPages(
+        pagesRef.current.filter((_, i) => i !== idx),
+        nextAnns,
+      )
       const nextIdx = Math.min(currentIndex, pages.length - 2)
       setSelectedId(null)
       setEditingTextId(null)
       setCurrentIndex(nextIdx)
       setPageInput(String(nextIdx + 1))
     },
-    [pages, currentIndex, pushHistory],
+    [pages, currentIndex, commitPages],
   )
 
   const movePage = useCallback(
     (idx: number, dir: -1 | 1) => {
       const target = idx + dir
       if (target < 0 || target >= pages.length) return
-      setPages((prev) => {
-        const next = [...prev]
-        const [item] = next.splice(idx, 1)
-        if (!item) return prev
-        next.splice(target, 0, item)
-        return next
-      })
+      const nextPages = [...pagesRef.current]
+      const [item] = nextPages.splice(idx, 1)
+      if (!item) return
+      nextPages.splice(target, 0, item)
+      commitPages(nextPages)
       if (currentIndex === idx) {
         setCurrentIndex(target)
         setPageInput(String(target + 1))
@@ -930,7 +957,7 @@ export default function PdfEditorPage() {
         setPageInput(String(idx + 1))
       }
     },
-    [pages.length, currentIndex],
+    [pages.length, currentIndex, commitPages],
   )
 
   // ── Insert Image & Signature ───────────────────────────────────────────────
@@ -1016,9 +1043,16 @@ export default function PdfEditorPage() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!pdf || signModalOpen) return
-      const tag = (e.target as HTMLElement)?.tagName
-      const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
-      if (isInput) return
+      const el = e.target as HTMLElement | null
+      const tag = el?.tagName
+      // Only real text fields keep their own native undo; selects, colour pickers,
+      // sliders and buttons must not swallow Ctrl+Z / Ctrl+Y.
+      const textTypes = ['text', 'search', 'number', 'email', 'url', 'tel', 'password', '']
+      const isTextField =
+        tag === 'TEXTAREA' ||
+        el?.isContentEditable === true ||
+        (tag === 'INPUT' && textTypes.includes((el as HTMLInputElement).type ?? ''))
+      if (isTextField) return
 
       const mod = e.ctrlKey || e.metaKey
       if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) {

@@ -166,7 +166,7 @@ export interface PdfBox {
 /** A vector shape (rectangle, line, path) that already exists inside the PDF */
 export interface PdfShape {
   id: string
-  kind: 'rect' | 'line' | 'path'
+  kind: 'rect' | 'line' | 'path' | 'image'
   paint: 'stroke' | 'fill' | 'both'
   /** Geometric bounding box (without stroke thickness) */
   box: PdfBox

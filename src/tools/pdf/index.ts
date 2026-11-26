@@ -5,6 +5,7 @@ import type { ToolModule } from '@/core/tools/types'
 export const pdfEditor: ToolModule = {
   id: 'pdf-editor',
   category: 'pdf',
+  section: 'edit',
   nameKey: 'tools.pdfEditor.name',
   descriptionKey: 'tools.pdfEditor.description',
   icon: FileText,

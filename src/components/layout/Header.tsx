@@ -1,13 +1,14 @@
 import { Lock } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Link, NavLink } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import { TOOL_SECTIONS } from '@/core/tools/types'
 import { ToolRegistry } from '@/tools'
 import { cn } from '@/lib/utils'
 import { LanguageSwitcher } from './LanguageSwitcher'
 
 export function Header() {
   const { t } = useTranslation()
-  const available = ToolRegistry.list().filter((tool) => tool.status === 'available')
+  const { pathname } = useLocation()
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--color-border)] bg-[var(--color-surface)]/90 backdrop-blur-md">
@@ -21,24 +22,27 @@ export function Header() {
 
         <span className="h-4 w-px bg-[var(--color-border)]" aria-hidden />
 
-        <nav className="flex flex-1 items-center gap-0.5 overflow-x-auto" aria-label="Tools">
-          {available.map((tool) => (
-            <NavLink
-              key={tool.id}
-              to={tool.route}
-              className={({ isActive }) =>
-                cn(
-                  'inline-flex items-center gap-2 whitespace-nowrap rounded-md px-2.5 py-1 text-[13px] transition-colors',
-                  isActive
+        <nav className="flex flex-1 items-center gap-0.5 overflow-x-auto" aria-label="Sections">
+          {TOOL_SECTIONS.map((section) => {
+            const tools = ToolRegistry.list().filter((tool) => tool.section === section && tool.component)
+            const first = tools[0]
+            if (!first) return null
+            const active = tools.some((tool) => pathname.startsWith(tool.route))
+            return (
+              <Link
+                key={section}
+                to={first.route}
+                className={cn(
+                  'whitespace-nowrap rounded-md px-2.5 py-1 text-[13px] transition-colors',
+                  active
                     ? 'bg-[var(--color-surface-sunken)] font-medium text-[var(--color-text-primary)]'
                     : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
-                )
-              }
-            >
-              <tool.icon className="size-3.5 shrink-0" aria-hidden />
-              <span className="hidden sm:inline">{t(tool.nameKey)}</span>
-            </NavLink>
-          ))}
+                )}
+              >
+                {t(`sections.${section}`)}
+              </Link>
+            )
+          })}
         </nav>
 
         <span

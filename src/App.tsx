@@ -6,7 +6,7 @@ import { ToolRegistry } from '@/tools'
 
 // Routes for tools are generated from the registry.
 const toolRoutes = ToolRegistry.list()
-  .filter((tool) => tool.status === 'available' && tool.component)
+  .filter((tool) => tool.component)
   .map((tool) => {
     const Component = tool.component!
     return { path: tool.route, element: <Component /> }
