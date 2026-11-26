@@ -1,8 +1,8 @@
 import { ToolRegistry } from '@/core/tools/registry'
+import { documentEditor } from './document'
 import { pdfEditor } from './pdf'
 import {
   documentConverter,
-  documentEditor,
   documentReader,
   imageConverter,
   pdfCompressor,

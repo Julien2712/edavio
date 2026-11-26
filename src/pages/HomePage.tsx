@@ -62,7 +62,7 @@ const SECTIONS: HomeSection[] = [
         icon: FileType2,
         iconBg: 'bg-sky-100 text-sky-600 dark:bg-sky-900/60 dark:text-sky-400',
         route: '/edit',
-        available: false,
+        available: true,
       },
       {
         nameKey: 'tools.spreadsheetEditor.name',

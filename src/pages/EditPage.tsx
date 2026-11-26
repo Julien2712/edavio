@@ -9,6 +9,7 @@ import {
   Presentation,
   Upload,
 } from 'lucide-react'
+import { ACCEPTED_DOCUMENT_EXTENSIONS } from '@/tools/document/docFormats'
 import { cn } from '@/lib/utils'
 
 // ── Tool definitions ───────────────────────────────────────────────────────────
@@ -47,14 +48,14 @@ const EDIT_TOOLS: EditTool[] = [
     id: 'docs',
     nameKey: 'tools.documentEditor.name',
     descriptionKey: 'tools.documentEditor.description',
-    extensionLabel: 'DOCX · DOC',
+    extensionLabel: 'DOCX · TXT · MD · HTML',
     color: 'from-sky-500 to-blue-600',
     iconBg: 'bg-sky-100 text-sky-600 dark:bg-sky-900/60 dark:text-sky-400',
-    borderHover: 'hover:border-sky-400',
+    borderHover: 'hover:border-[var(--color-text-tertiary)]',
     icon: FileType2,
     route: '/documents/edit',
-    accept: '.doc,.docx',
-    available: false,
+    accept: ACCEPTED_DOCUMENT_EXTENSIONS,
+    available: true,
     features: ['home.docs.feat1', 'home.docs.feat2', 'home.docs.feat3'],
   },
   {
@@ -169,12 +170,26 @@ function EditToolCard({ tool }: { tool: EditTool }) {
       </ul>
 
       {/* CTA */}
-      <div className="mt-5">
+      <div className="mt-5 flex flex-wrap items-center gap-2">
         {tool.available ? (
-          <span className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white transition-colors group-hover:bg-[var(--color-accent-hover)]">
-            <Upload className="size-3.5" aria-hidden />
-            {t('home.openFile')}
-          </span>
+          <>
+            <span className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white transition-colors group-hover:bg-[var(--color-accent-hover)]">
+              <Upload className="size-3.5" aria-hidden />
+              {t('home.openFile')}
+            </span>
+            {tool.id === 'docs' && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  navigate(tool.route, { state: { newBlank: true } })
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+              >
+                {t('tools.documentEditor.newBlank')}
+              </button>
+            )}
+          </>
         ) : (
           <span className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-text-tertiary)]">
             {t('home.comingSoon')}

@@ -1,20 +1,8 @@
 import { lazy } from 'react'
-import { BookOpen, FileOutput, FileSpreadsheet, FileType2, Images, Minimize2, Presentation } from 'lucide-react'
+import { BookOpen, FileOutput, FileSpreadsheet, Images, Minimize2, Presentation } from 'lucide-react'
 import type { ToolModule } from '@/core/tools/types'
 
 /** Placeholders so the shell already shows the platform roadmap. */
-export const documentEditor: ToolModule = {
-  id: 'document-editor',
-  section: 'edit',
-  category: 'documents',
-  nameKey: 'tools.documentEditor.name',
-  descriptionKey: 'tools.documentEditor.description',
-  icon: FileType2,
-  route: '/documents/edit',
-  features: [],
-  acceptedMimeTypes: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-  status: 'coming-soon',
-}
 
 export const spreadsheetEditor: ToolModule = {
   id: 'spreadsheet-editor',
