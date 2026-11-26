@@ -1,16 +1,24 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { PDFPageProxy } from 'pdfjs-dist'
 import { Util } from 'pdfjs-dist'
-import { Copy, Trash2 } from 'lucide-react'
+import { Copy, Pencil, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  classifyFont,
+  fontCss,
+  lineHeightFactor,
+  measureTextWidth,
+  textPadding,
+  type FontClass,
+} from './fontInfo'
 import type {
   Annotation,
   DetectedTextItem,
   EditorTool,
-  FontFamily,
   LineAnnotation,
   PathAnnotation,
+  PdfShape,
   Point,
   ShapeAnnotation,
   TextAnnotation,
@@ -39,12 +47,14 @@ function EditableTextArea({
   value,
   placeholder,
   style,
+  noWrap,
   onChange,
   onDone,
 }: {
   value: string
   placeholder: string
   style: React.CSSProperties
+  noWrap?: boolean
   onChange: (value: string, scrollHeight: number) => void
   onDone: () => void
 }) {
@@ -56,7 +66,7 @@ function EditableTextArea({
     const raf = requestAnimationFrame(() => {
       const el = ref.current
       if (!el) return
-      el.focus()
+      el.focus({ preventScroll: true })
       const len = el.value.length
       el.setSelectionRange(len, len)
     })
@@ -68,13 +78,15 @@ function EditableTextArea({
       ref={ref}
       value={value}
       placeholder={placeholder}
+      wrap={noWrap ? 'off' : undefined}
+      spellCheck={false}
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
       onChange={(e) => onChange(e.target.value, e.target.scrollHeight)}
       onBlur={() => {
         // Guard against stray blur right as pointerup finishes mounting
         if (performance.now() - mountedAtRef.current < 80) {
-          requestAnimationFrame(() => ref.current?.focus())
+          requestAnimationFrame(() => ref.current?.focus({ preventScroll: true }))
           return
         }
         onDone()
@@ -86,15 +98,9 @@ function EditableTextArea({
         }
       }}
       className="cursor-text pointer-events-auto h-full min-h-full w-full resize-none bg-transparent outline-none"
-      style={style}
+      style={noWrap ? { ...style, whiteSpace: 'pre', overflow: 'hidden' } : style}
     />
   )
-}
-
-function fontCss(family: FontFamily) {
-  if (family === 'TimesRoman') return 'Georgia, "Times New Roman", serif'
-  if (family === 'Courier') return '"JetBrains Mono", "Courier New", monospace'
-  return 'Inter, system-ui, -apple-system, sans-serif'
 }
 
 function getBoxBounds(ann: Annotation): { x: number; y: number; width: number; height: number } {
@@ -133,6 +139,21 @@ function getBoxBounds(ann: Annotation): { x: number; y: number; width: number; h
     case 'sign':
       return { x: ann.x, y: ann.y, width: ann.width, height: ann.height }
   }
+}
+
+interface ShapeView {
+  shape: PdfShape
+  /** Geometric box, px at scale 1 */
+  x: number
+  y: number
+  w: number
+  h: number
+  /** Box including stroke thickness (used for hit testing / highlight) */
+  hx: number
+  hy: number
+  hw: number
+  hh: number
+  line?: [number, number, number, number]
 }
 
 function uid() {
@@ -210,7 +231,8 @@ function sampleColorsFromCanvas(
     }
 
     contrasts.sort((a, b) => b.dist - a.dist)
-    const topCount = Math.max(1, Math.floor(contrasts.length * 0.35))
+    // Only the purest ink pixels: averaging anti-aliased edges would turn black text gray
+    const topCount = Math.min(contrasts.length, Math.max(6, Math.floor(contrasts.length * 0.04)))
     let sumR = 0
     let sumG = 0
     let sumB = 0
@@ -224,8 +246,18 @@ function sampleColorsFromCanvas(
     const totalPixels = Math.max(1, w * h)
     const inkRatio = contrasts.length / totalPixels
 
+    let inkR = sumR / topCount
+    let inkG = sumG / topCount
+    let inkB = sumB / topCount
+    // Near-black neutral ink is plain black text
+    if (Math.max(inkR, inkG, inkB) < 45 && Math.max(inkR, inkG, inkB) - Math.min(inkR, inkG, inkB) < 20) {
+      inkR = 0
+      inkG = 0
+      inkB = 0
+    }
+
     return {
-      color: rgbToHex(sumR / topCount, sumG / topCount, sumB / topCount),
+      color: rgbToHex(inkR, inkG, inkB),
       backgroundColor: rgbToHex(bgR, bgG, bgB),
       bold: inkRatio > 0.24 || item.fontSize >= 17,
     }
@@ -247,10 +279,14 @@ export function AnnotationLayer({
   selectedId,
   editingTextId,
   getPageCanvas,
+  pdfShapes,
+  selectedShapeId,
   onSelect,
+  onSelectShape,
   onEditingTextIdChange,
   onAddAnnotation,
   onReplacePdfText,
+  onReplacePdfShape,
   onUpdateAnnotation,
   onCommitHistory,
   onDeleteAnnotation,
@@ -269,13 +305,18 @@ export function AnnotationLayer({
   selectedId: string | null
   editingTextId: string | null
   getPageCanvas: () => HTMLCanvasElement | null
+  pdfShapes: PdfShape[]
+  selectedShapeId: string | null
   onSelect: (id: string | null) => void
+  onSelectShape: (id: string | null) => void
   onEditingTextIdChange: (id: string | null) => void
   onAddAnnotation: (ann: Annotation, recordHistory?: boolean) => void
   onReplacePdfText: (
     item: DetectedTextItem,
     style: { color: string; backgroundColor: string; bold: boolean },
   ) => void
+  /** Removes a shape of the PDF; when `replacement` is given it becomes an editable annotation */
+  onReplacePdfShape: (shape: PdfShape, replacement: Annotation | null) => void
   onUpdateAnnotation: (id: string, patch: Partial<Annotation>, recordHistory?: boolean) => void
   onCommitHistory: () => void
   onDeleteAnnotation: (id: string) => void
@@ -290,6 +331,10 @@ export function AnnotationLayer({
     items: DetectedTextItem[]
   }>({ key: '', items: [] })
 
+  const [hoverShapeId, setHoverShapeId] = useState<string | null>(null)
+  const lastDownRef = useRef<{ id: string; t: number } | null>(null)
+  const movedRef = useRef(false)
+
   const detectedKey = `${pageId}:${userRotation}:${annotations.length}`
 
   // Load and group text runs by visual line when edit-text mode is active
@@ -299,82 +344,133 @@ export function AnnotationLayer({
     const totalRot = (((pdfjsPage.rotate + userRotation) % 360 + 360) % 360) as 0 | 90 | 180 | 270
     const vp1 = pdfjsPage.getViewport({ scale: 1, rotation: totalRot })
 
-    pdfjsPage
-      .getTextContent()
-      .then((tc) => {
-        if (cancelled) return
-        const rawItems: DetectedTextItem[] = []
-        tc.items.forEach((raw, idx) => {
-          if (!('str' in raw) || !raw.str.trim()) return
-          const tx = Util.transform(vp1.transform, raw.transform)
-          const fontSize = Math.max(8, Math.round(Math.hypot(tx[2], tx[3])))
-          const w = Math.max(10, raw.width)
-          const h = Math.max(fontSize * 1.2, raw.height || fontSize * 1.2)
-          const x = tx[4]
-          const y = tx[5] - fontSize * 0.88
+    const load = async () => {
+      const tc = await pdfjsPage.getTextContent()
 
-          const styleObj = tc.styles?.[raw.fontName]
-          const ffRaw = styleObj?.fontFamily ?? ''
-          let fontFamily: FontFamily = 'Helvetica'
-          if (/serif|times/i.test(ffRaw)) fontFamily = 'TimesRoman'
-          else if (/mono|courier/i.test(ffRaw)) fontFamily = 'Courier'
-
-          const pdfFontSize = Math.max(6, Math.hypot(raw.transform[2], raw.transform[3]))
-          const pdfX = raw.transform[4]
-          const pdfY = raw.transform[5]
-
-          rawItems.push({
-            id: `txt-${idx}`,
-            text: raw.str,
-            x,
-            y,
-            width: w,
-            height: h,
-            fontSize,
-            fontFamily,
-            pdfX,
-            pdfMaxX: pdfX + raw.width,
-            pdfY,
-            pdfFontSize,
-          })
-        })
-
-        // Sort top-to-bottom, left-to-right and merge fragments on the same visual line
-        rawItems.sort((a, b) => {
-          if (Math.abs(a.y - b.y) > Math.min(a.fontSize, b.fontSize) * 0.35) {
-            return a.y - b.y
-          }
-          return a.x - b.x
-        })
-
-        const merged: DetectedTextItem[] = []
-        for (const cur of rawItems) {
-          const prev = merged[merged.length - 1]
-          if (prev) {
-            const sameLine = Math.abs(cur.y - prev.y) <= Math.max(4, prev.fontSize * 0.35)
-            const sameSize = Math.abs(cur.fontSize - prev.fontSize) <= Math.max(2, prev.fontSize * 0.25)
-            const gap = cur.x - (prev.x + prev.width)
-            if (sameLine && sameSize && gap >= -prev.fontSize * 0.5 && gap <= prev.fontSize * 1.1) {
-              const needsSpace =
-                gap > prev.fontSize * 0.16 &&
-                !prev.text.endsWith(' ') &&
-                !cur.text.startsWith(' ')
-              prev.text = prev.text + (needsSpace ? ' ' : '') + cur.text
-              prev.width = Math.max(prev.width, cur.x + cur.width - prev.x)
-              prev.height = Math.max(prev.height, cur.height)
-              prev.pdfX = Math.min(prev.pdfX, cur.pdfX)
-              prev.pdfMaxX = Math.max(prev.pdfMaxX, cur.pdfMaxX)
-              continue
-            }
-          }
-          merged.push({ ...cur })
+      // Real font names are only available once pdf.js has loaded the fonts (render step)
+      const usedFonts = new Set<string>()
+      for (const raw of tc.items) {
+        if ('fontName' in raw) usedFonts.add(raw.fontName)
+      }
+      if ([...usedFonts].some((name) => !pdfjsPage.commonObjs.has(name))) {
+        try {
+          await pdfjsPage.getOperatorList()
+        } catch {
+          // fall back to the generic family reported by the text content
         }
+      }
+      if (cancelled) return
 
-        setDetectedTextState({ key: detectedKey, items: merged })
+      const classCache = new Map<string, FontClass>()
+      const classify = (fontName: string): FontClass => {
+        const cached = classCache.get(fontName)
+        if (cached) return cached
+        let realName: string | undefined
+        let isMono: boolean | undefined
+        let isSerif: boolean | undefined
+        try {
+          if (pdfjsPage.commonObjs.has(fontName)) {
+            const obj = pdfjsPage.commonObjs.get(fontName) as {
+              name?: string
+              isMonospace?: boolean
+              isSerifFont?: boolean
+            } | null
+            realName = obj?.name
+            isMono = obj?.isMonospace
+            isSerif = obj?.isSerifFont
+          }
+        } catch {
+          // not resolved yet
+        }
+        const result = classifyFont(realName, {
+          styleFamily: tc.styles?.[fontName]?.fontFamily ?? '',
+          isMono,
+          isSerif,
+        })
+        classCache.set(fontName, result)
+        return result
+      }
+
+      const rawItems: DetectedTextItem[] = []
+      tc.items.forEach((raw, idx) => {
+        if (!('str' in raw) || !raw.str.trim()) return
+        const tx = Util.transform(vp1.transform, raw.transform)
+        // Exact size: no rounding, otherwise the replacement text drifts from the original
+        const fontSize = Math.max(1, Math.hypot(tx[2], tx[3]))
+        const w = Math.max(10, raw.width)
+        const h = Math.max(fontSize * 1.2, raw.height || fontSize * 1.2)
+        const x = tx[4]
+        const baselineY = tx[5]
+        const y = baselineY - fontSize * 0.88
+
+        const cls = classify(raw.fontName)
+        const pdfFontSize = Math.max(6, Math.hypot(raw.transform[2], raw.transform[3]))
+        const pdfX = raw.transform[4]
+        const pdfY = raw.transform[5]
+
+        rawItems.push({
+          id: `txt-${idx}`,
+          text: raw.str,
+          x,
+          y,
+          width: w,
+          height: h,
+          fontSize,
+          fontFamily: cls.family,
+          baselineY,
+          fontName: raw.fontName,
+          bold: cls.bold,
+          italic: cls.italic,
+          fontKnown: cls.known,
+          pdfX,
+          pdfMaxX: pdfX + raw.width,
+          pdfY,
+          pdfFontSize,
+        })
       })
-      .catch(() => {
-        if (!cancelled) setDetectedTextState({ key: detectedKey, items: [] })
+
+      // Sort top-to-bottom, left-to-right and merge fragments of the same font on the same line
+      rawItems.sort((a, b) => {
+        if (Math.abs(a.y - b.y) > Math.min(a.fontSize, b.fontSize) * 0.35) {
+          return a.y - b.y
+        }
+        return a.x - b.x
       })
+
+      const merged: DetectedTextItem[] = []
+      for (const cur of rawItems) {
+        const prev = merged[merged.length - 1]
+        if (prev) {
+          const sameLine = Math.abs(cur.y - prev.y) <= Math.max(4, prev.fontSize * 0.35)
+          const sameSize = Math.abs(cur.fontSize - prev.fontSize) <= Math.max(0.6, prev.fontSize * 0.08)
+          const sameFont = cur.fontName === prev.fontName
+          const gap = cur.x - (prev.x + prev.width)
+          if (
+            sameLine &&
+            sameSize &&
+            sameFont &&
+            gap >= -prev.fontSize * 0.5 &&
+            gap <= prev.fontSize * 1.1
+          ) {
+            const needsSpace =
+              gap > prev.fontSize * 0.16 && !prev.text.endsWith(' ') && !cur.text.startsWith(' ')
+            prev.text = prev.text + (needsSpace ? ' ' : '') + cur.text
+            prev.width = Math.max(prev.width, cur.x + cur.width - prev.x)
+            prev.height = Math.max(prev.height, cur.height)
+            prev.pdfX = Math.min(prev.pdfX, cur.pdfX)
+            prev.pdfMaxX = Math.max(prev.pdfMaxX, cur.pdfMaxX)
+            continue
+          }
+        }
+        merged.push({ ...cur })
+      }
+
+      setDetectedTextState({ key: detectedKey, items: merged })
+    }
+
+    load().catch(() => {
+      if (!cancelled) setDetectedTextState({ key: detectedKey, items: [] })
+    })
 
     return () => {
       cancelled = true
@@ -383,6 +479,50 @@ export function AnnotationLayer({
 
   const detectedText =
     tool === 'edit-text' && detectedTextState.key === detectedKey ? detectedTextState.items : []
+
+  // Existing PDF shapes converted to viewport coordinates (px at scale 1)
+  const shapeViews = useMemo<ShapeView[]>(() => {
+    if (!pdfjsPage || pdfShapes.length === 0) return []
+    const totalRot = (((pdfjsPage.rotate + userRotation) % 360 + 360) % 360) as 0 | 90 | 180 | 270
+    const vp = pdfjsPage.getViewport({ scale: 1, rotation: totalRot })
+    const cv = (x: number, y: number): Point => {
+      const r = vp.convertToViewportPoint(x, y)
+      return { x: r[0] ?? 0, y: r[1] ?? 0 }
+    }
+    const pageArea = vp.width * vp.height
+    const views: ShapeView[] = []
+    for (const shape of pdfShapes) {
+      const b = shape.box
+      const corners = [cv(b.x0, b.y0), cv(b.x1, b.y0), cv(b.x1, b.y1), cv(b.x0, b.y1)]
+      const xs = corners.map((c) => c.x)
+      const ys = corners.map((c) => c.y)
+      const x = Math.min(...xs)
+      const y = Math.min(...ys)
+      const w = Math.max(...xs) - x
+      const h = Math.max(...ys) - y
+      // A fill covering the whole page is a background, not something to pick
+      if (shape.paint === 'fill' && w * h > pageArea * 0.85) continue
+      const half = shape.paint === 'fill' ? 0 : shape.strokeWidth / 2
+      const view: ShapeView = {
+        shape,
+        x,
+        y,
+        w,
+        h,
+        hx: x - half,
+        hy: y - half,
+        hw: w + half * 2,
+        hh: h + half * 2,
+      }
+      if (shape.line) {
+        const a = cv(shape.line[0], shape.line[1])
+        const c = cv(shape.line[2], shape.line[3])
+        view.line = [a.x, a.y, c.x, c.y]
+      }
+      views.push(view)
+    }
+    return views
+  }, [pdfjsPage, userRotation, pdfShapes])
 
   const toUnscaledPoint = useCallback(
     (clientX: number, clientY: number): Point => {
@@ -406,6 +546,11 @@ export function AnnotationLayer({
     }
 
     if (tool === 'edit-text') {
+      return
+    }
+
+    if (tool === 'edit-shape') {
+      onSelectShape(null)
       return
     }
 
@@ -484,6 +629,7 @@ export function AnnotationLayer({
     } else if (drag.kind === 'move') {
       const dx = pt.x - drag.startPt.x
       const dy = pt.y - drag.startPt.y
+      if (dx !== 0 || dy !== 0) movedRef.current = true
       const orig = drag.orig
       switch (orig.type) {
         case 'draw':
@@ -593,7 +739,10 @@ export function AnnotationLayer({
         onSelect(drag.ann.id)
         onToolUsed()
       }
-    } else if (drag.kind === 'move' || drag.kind === 'resize-box' || drag.kind === 'resize-line') {
+    } else if (drag.kind === 'move') {
+      // A plain click must not add an empty step to the undo history
+      if (movedRef.current) onCommitHistory()
+    } else if (drag.kind === 'resize-box' || drag.kind === 'resize-line') {
       onCommitHistory()
     }
     setDrag(null)
@@ -603,6 +752,21 @@ export function AnnotationLayer({
     if (tool !== 'select') return
     if (editingTextId === ann.id) return
     e.stopPropagation()
+    onSelectShape(null)
+
+    // Pointer capture below swallows the browser's dblclick event, so a double click
+    // on a text box is detected here (this is what makes edited text editable again).
+    const now = performance.now()
+    const last = lastDownRef.current
+    if (ann.type === 'text' && last && last.id === ann.id && now - last.t < 450) {
+      lastDownRef.current = null
+      onSelect(ann.id)
+      onEditingTextIdChange(ann.id)
+      return
+    }
+    lastDownRef.current = { id: ann.id, t: now }
+
+    movedRef.current = false
     onSelect(ann.id)
     const pt = toUnscaledPoint(e.clientX, e.clientY)
     layerRef.current?.setPointerCapture(e.pointerId)
@@ -634,7 +798,7 @@ export function AnnotationLayer({
 
   const handleDetectedTextClick = (item: DetectedTextItem) => {
     const sampled = sampleColorsFromCanvas(getPageCanvas(), item, scale)
-    onReplacePdfText(item, sampled)
+    onReplacePdfText(item, { ...sampled, bold: item.fontKnown ? item.bold : sampled.bold })
     onToolUsed()
   }
 
@@ -646,7 +810,7 @@ export function AnnotationLayer({
   const allItems = previewAnn ? [...annotations, previewAnn] : annotations
 
   const cursorClass =
-    tool === 'select'
+    tool === 'select' || tool === 'edit-shape'
       ? 'cursor-default'
       : tool === 'text' || tool === 'edit-text'
         ? 'cursor-text'
@@ -655,7 +819,76 @@ export function AnnotationLayer({
   const selectedAnn = annotations.find((a) => a.id === selectedId) ?? null
   const selectedBounds = selectedAnn ? getBoxBounds(selectedAnn) : null
 
+  const selectedShapeView = shapeViews.find((v) => v.shape.id === selectedShapeId) ?? null
+
+  /** Editable copy of an existing rectangle / line (null for free-form paths) */
+  const annotationFromShape = (v: ShapeView): Annotation | null => {
+    const s = v.shape
+    const hasStroke = s.paint !== 'fill'
+    const hasFill = s.paint !== 'stroke'
+    if (s.kind === 'rect') {
+      const ann: ShapeAnnotation = {
+        id: uid(),
+        pageId,
+        type: 'rect',
+        x: v.x,
+        y: v.y,
+        width: Math.max(0.1, v.w),
+        height: Math.max(0.1, v.h),
+        color: hasStroke ? (s.strokeColor ?? '#000000') : (s.fillColor ?? '#000000'),
+        fillColor: hasFill ? (s.fillColor ?? '#000000') : null,
+        strokeWidth: hasStroke ? Math.max(0.25, s.strokeWidth) : 0,
+        opacity: 1,
+        underlay: hasFill,
+      }
+      return ann
+    }
+    if (s.kind === 'line' && v.line) {
+      const ann: LineAnnotation = {
+        id: uid(),
+        pageId,
+        type: s.arrow ? 'arrow' : 'line',
+        x1: v.line[0],
+        y1: v.line[1],
+        x2: v.line[2],
+        y2: v.line[3],
+        color: s.strokeColor ?? '#000000',
+        strokeWidth: Math.max(0.25, s.strokeWidth),
+      }
+      return ann
+    }
+    return null
+  }
+
   return (
+    <>
+      {/* Fills of converted PDF shapes, painted under the page text (multiply blend) */}
+      {annotations.some(
+        (a) => a.type === 'rect' && a.underlay && a.fillColor,
+      ) && (
+        <svg
+          width={vpWidth}
+          height={vpHeight}
+          viewBox={`0 0 ${vpWidth / scale} ${vpHeight / scale}`}
+          className="pointer-events-none absolute inset-0"
+          style={{ mixBlendMode: 'multiply' }}
+        >
+          {annotations.map((a) => {
+            if (a.type !== 'rect' || !a.underlay || !a.fillColor) return null
+            return (
+              <rect
+                key={`under-${a.id}`}
+                x={a.x}
+                y={a.y}
+                width={a.width}
+                height={a.height}
+                fill={a.fillColor}
+                opacity={a.opacity}
+              />
+            )
+          })}
+        </svg>
+      )}
     <div
       ref={layerRef}
       onPointerDown={handleLayerPointerDown}
@@ -700,6 +933,135 @@ export function AnnotationLayer({
             title={item.text}
           />
         ))}
+
+      {/* Shapes that already exist in the PDF: hover, click to delete or make editable */}
+      {(tool === 'select' || tool === 'edit-shape') && shapeViews.length > 0 && (
+        <svg
+          width={vpWidth}
+          height={vpHeight}
+          viewBox={`0 0 ${vpWidth / scale} ${vpHeight / scale}`}
+          className="pointer-events-none absolute inset-0"
+        >
+          {shapeViews.map((v) => {
+            const everything = tool === 'edit-shape'
+            // With the Select tool only borders / lines can be grabbed, so that text inside a
+            // framed box stays selectable. The "Edit shape" tool picks the whole area.
+            if (!everything && v.shape.kind === 'path') return null
+            const hit = 10 / scale
+            const pick = (e: React.PointerEvent) => {
+              e.stopPropagation()
+              e.preventDefault()
+              onSelect(null)
+              onEditingTextIdChange(null)
+              onSelectShape(v.shape.id)
+            }
+            const hover = {
+              onPointerEnter: () => setHoverShapeId(v.shape.id),
+              onPointerLeave: () => setHoverShapeId((cur) => (cur === v.shape.id ? null : cur)),
+            }
+            if (v.shape.kind === 'line' && v.line) {
+              return (
+                <line
+                  key={v.shape.id}
+                  x1={v.line[0]}
+                  y1={v.line[1]}
+                  x2={v.line[2]}
+                  y2={v.line[3]}
+                  stroke="transparent"
+                  strokeWidth={Math.max(hit, v.shape.strokeWidth + 4 / scale)}
+                  strokeLinecap="round"
+                  style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
+                  onPointerDown={pick}
+                  {...hover}
+                />
+              )
+            }
+            if (everything) {
+              return (
+                <rect
+                  key={v.shape.id}
+                  x={v.hx}
+                  y={v.hy}
+                  width={v.hw}
+                  height={v.hh}
+                  fill="transparent"
+                  style={{ pointerEvents: 'all', cursor: 'pointer' }}
+                  onPointerDown={pick}
+                  {...hover}
+                />
+              )
+            }
+            return (
+              <rect
+                key={v.shape.id}
+                x={v.x}
+                y={v.y}
+                width={v.w}
+                height={v.h}
+                fill="none"
+                stroke="transparent"
+                strokeWidth={hit}
+                style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
+                onPointerDown={pick}
+                {...hover}
+              />
+            )
+          })}
+
+          {shapeViews
+            .filter((v) => v.shape.id === selectedShapeId || v.shape.id === hoverShapeId)
+            .map((v) => {
+              const selected = v.shape.id === selectedShapeId
+              return (
+                <rect
+                  key={`hl-${v.shape.id}`}
+                  x={v.hx - 2 / scale}
+                  y={v.hy - 2 / scale}
+                  width={v.hw + 4 / scale}
+                  height={v.hh + 4 / scale}
+                  fill="rgba(37, 99, 235, 0.08)"
+                  stroke="var(--color-accent)"
+                  strokeWidth={(selected ? 2 : 1.25) / scale}
+                  strokeDasharray={selected ? undefined : `${4 / scale} ${3 / scale}`}
+                  style={{ pointerEvents: 'none' }}
+                />
+              )
+            })}
+        </svg>
+      )}
+
+      {(tool === 'select' || tool === 'edit-shape') && selectedShapeView && (
+        <div
+          onPointerDown={(e) => e.stopPropagation()}
+          className="pointer-events-auto absolute z-30 flex items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-1 shadow-lg"
+          style={{
+            left: `${Math.max(4, selectedShapeView.hx * scale)}px`,
+            top: `${Math.max(4, selectedShapeView.hy * scale - 38)}px`,
+          }}
+        >
+          {selectedShapeView.shape.kind !== 'path' && (
+            <button
+              type="button"
+              onClick={() =>
+                onReplacePdfShape(selectedShapeView.shape, annotationFromShape(selectedShapeView))
+              }
+              title={t('tools.pdfEditor.props.makeEditable')}
+              className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-text-primary)]"
+            >
+              <Pencil className="size-3.5" />
+              {t('tools.pdfEditor.props.makeEditableShort')}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => onReplacePdfShape(selectedShapeView.shape, null)}
+            title={t('tools.pdfEditor.props.delete')}
+            className="rounded p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* SVG layer for paths, shapes, lines, arrows */}
       <svg
@@ -761,7 +1123,7 @@ export function AnnotationLayer({
                 y={ann.y}
                 width={ann.width}
                 height={ann.height}
-                fill={ann.fillColor ?? 'transparent'}
+                fill={ann.underlay ? 'transparent' : (ann.fillColor ?? 'transparent')}
                 stroke={ann.strokeWidth > 0 ? ann.color : 'none'}
                 strokeWidth={ann.strokeWidth}
                 opacity={ann.opacity}
@@ -858,14 +1220,34 @@ export function AnnotationLayer({
 
         if (ann.type === 'text') {
           const isEditing = editingTextId === ann.id
-          const pad = ann.compact ? 0 : 4
-          const lh = ann.compact ? 1.15 : 1.25
+          const pad = textPadding(ann.compact)
+          const lh = lineHeightFactor(ann.compact)
+          const clickToEdit = tool === 'edit-text' || tool === 'text'
+          const textStyle: React.CSSProperties = {
+            fontFamily: fontCss(ann.fontFamily),
+            fontSize: `${ann.fontSize * scale}px`,
+            lineHeight: lh,
+            fontWeight: ann.bold ? 700 : 400,
+            fontStyle: ann.italic ? 'italic' : 'normal',
+            color: ann.color,
+            letterSpacing: ann.letterSpacing ? `${ann.letterSpacing * scale}px` : undefined,
+            whiteSpace: ann.compact ? 'pre' : undefined,
+          }
           return (
             <div
               key={ann.id}
               onPointerDown={(e) => {
                 if (isEditing) {
                   e.stopPropagation()
+                  return
+                }
+                if (clickToEdit) {
+                  // Already edited text stays editable with the text tools
+                  e.stopPropagation()
+                  e.preventDefault()
+                  onSelectShape(null)
+                  onSelect(ann.id)
+                  onEditingTextIdChange(ann.id)
                   return
                 }
                 startMove(e, ann)
@@ -879,8 +1261,11 @@ export function AnnotationLayer({
               className={cn(
                 'absolute rounded-xs',
                 tool === 'select' && !isEditing ? 'pointer-events-auto cursor-move' : '',
+                clickToEdit && !isEditing
+                  ? 'pointer-events-auto cursor-text hover:outline-1 hover:outline-[var(--color-accent)]'
+                  : '',
                 isEditing ? 'pointer-events-auto' : '',
-                tool !== 'select' && !isEditing ? 'pointer-events-none' : '',
+                tool !== 'select' && !clickToEdit && !isEditing ? 'pointer-events-none' : '',
                 isEditing && 'outline-2 outline-dashed outline-[var(--color-accent)]',
               )}
               style={{
@@ -897,40 +1282,42 @@ export function AnnotationLayer({
                 <EditableTextArea
                   value={ann.text}
                   placeholder={t('tools.pdfEditor.props.textPlaceholder')}
+                  noWrap={ann.compact}
                   onChange={(val, scrollH) => {
-                    onUpdateAnnotation(
-                      ann.id,
-                      {
-                        text: val,
-                        height: Math.max(ann.height, scrollH / scale),
-                      },
-                      false,
-                    )
+                    const patch: Partial<TextAnnotation> = {
+                      text: val,
+                      height: Math.max(ann.height, scrollH / scale),
+                    }
+                    if (ann.compact) {
+                      // Single-line text taken from the PDF grows sideways instead of wrapping
+                      const widest = Math.max(
+                        ...val
+                          .split('\n')
+                          .map((line) =>
+                            measureTextWidth(
+                              line,
+                              ann.fontFamily,
+                              ann.bold,
+                              ann.italic,
+                              ann.fontSize,
+                              ann.letterSpacing ?? 0,
+                            ),
+                          ),
+                      )
+                      if (widest + 4 > ann.width) patch.width = widest + 4
+                    }
+                    onUpdateAnnotation(ann.id, patch, false)
                   }}
                   onDone={() => {
                     onEditingTextIdChange(null)
                     onCommitHistory()
                   }}
-                  style={{
-                    fontFamily: fontCss(ann.fontFamily),
-                    fontSize: `${ann.fontSize * scale}px`,
-                    lineHeight: lh,
-                    fontWeight: ann.bold ? 700 : 400,
-                    fontStyle: ann.italic ? 'italic' : 'normal',
-                    color: ann.color,
-                  }}
+                  style={textStyle}
                 />
               ) : (
                 <div
-                  className="whitespace-pre-wrap break-words"
-                  style={{
-                    fontFamily: fontCss(ann.fontFamily),
-                    fontSize: `${ann.fontSize * scale}px`,
-                    lineHeight: lh,
-                    fontWeight: ann.bold ? 700 : 400,
-                    fontStyle: ann.italic ? 'italic' : 'normal',
-                    color: ann.color,
-                  }}
+                  className={ann.compact ? undefined : 'whitespace-pre-wrap break-words'}
+                  style={textStyle}
                 >
                   {ann.text || (
                     <span className="italic opacity-40">
@@ -1049,5 +1436,7 @@ export function AnnotationLayer({
         </>
       )}
     </div>
+
+    </>
   )
 }

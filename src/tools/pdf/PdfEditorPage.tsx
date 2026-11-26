@@ -6,6 +6,7 @@ import {
   AlignJustify,
   ArrowUpRight,
   Bold,
+  BoxSelect,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -39,7 +40,10 @@ import { Button } from '@/components/ui/button'
 import { AnnotationLayer } from './AnnotationLayer'
 import { exportAnnotatedPdf } from './exportPdf'
 import { PageThumbnails } from './PageThumbnails'
-import { stripSuppressedTextFromPdf, type TextSuppression } from './pdfTextRemover'
+import { baselineFromTop, fitLetterSpacing, lineHeightFactor, measureTextWidth } from './fontInfo'
+import { extractPageShapes } from './pdfShapes'
+import { applySuppressions, type Suppression } from './pdfSuppress'
+import type { TextSuppression } from './pdfTextRemover'
 import { SignatureModal } from './SignatureModal'
 import {
   COLOR_SWATCHES,
@@ -50,6 +54,8 @@ import {
   type FontFamily,
   type ImageAnnotation,
   type PageEntry,
+  type PdfShape,
+  type ShapeSuppression,
   type TextAnnotation,
   type ToolStyleConfig,
 } from './types'
@@ -74,6 +80,18 @@ function uid() {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
 }
 
+/** Keeps an exact value (e.g. 10.91px read from the PDF) selectable in a preset list. */
+function withCurrent(options: number[], current: number): number[] {
+  if (options.some((o) => Math.abs(o - current) < 0.005)) return options
+  return [...options, current].sort((a, b) => a - b)
+}
+
+const EMPTY_SHAPES: PdfShape[] = []
+
+function fmtNum(n: number): string {
+  return String(Math.round(n * 100) / 100)
+}
+
 interface PdfState {
   doc: PDFDocumentProxy
   originalBytes: Uint8Array
@@ -83,7 +101,7 @@ interface PdfState {
 
 interface HistorySnapshot {
   annotations: Annotation[]
-  suppressions: TextSuppression[]
+  suppressions: Suppression[]
 }
 
 type ZoomMode = 'custom' | 'fit-width' | 'fit-page'
@@ -313,12 +331,18 @@ export default function PdfEditorPage() {
   // Editing state
   const [tool, setTool] = useState<EditorTool>('select')
   const [annotations, setAnnotations] = useState<Annotation[]>([])
-  const [suppressions, setSuppressions] = useState<TextSuppression[]>([])
+  const [suppressions, setSuppressions] = useState<Suppression[]>([])
   const [history, setHistory] = useState<HistorySnapshot[]>([{ annotations: [], suppressions: [] }])
   const [historyIdx, setHistoryIdx] = useState(0)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [editingTextId, setEditingTextId] = useState<string | null>(null)
   const [signModalOpen, setSignModalOpen] = useState(false)
+  const [shapeState, setShapeState] = useState<{
+    bytes: Uint8Array | null
+    index: number | null
+    shapes: PdfShape[]
+  }>({ bytes: null, index: null, shapes: [] })
+  const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null)
 
   const [styleConfig, setStyleConfig] = useState<ToolStyleConfig>({
     color: '#0f172a',
@@ -338,7 +362,7 @@ export default function PdfEditorPage() {
   const openFileInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const annotationsRef = useRef<Annotation[]>(annotations)
-  const suppressionsRef = useRef<TextSuppression[]>(suppressions)
+  const suppressionsRef = useRef<Suppression[]>(suppressions)
   const pdfRef = useRef<PdfState | null>(pdf)
   const syncSeqRef = useRef(0)
 
@@ -358,21 +382,22 @@ export default function PdfEditorPage() {
 
   const syncWorkingPdf = useCallback(
     async (
-      nextSuppressions: TextSuppression[],
+      nextSuppressions: Suppression[],
       pendingTransparent?: { annId: string; suppressionId: string },
     ) => {
       const currentPdf = pdfRef.current
       if (!currentPdf) return
       const seq = ++syncSeqRef.current
       try {
-        const { bytes, matchedIds } = await stripSuppressedTextFromPdf(
+        const { bytes, matchedIds } = await applySuppressions(
           currentPdf.originalBytes,
           nextSuppressions,
         )
         if (seq !== syncSeqRef.current) return
 
         const pdfjs = await loadPdfJs()
-        const nextDoc = await pdfjs.getDocument({ data: bytes.slice() }).promise
+        const nextDoc = await pdfjs.getDocument({ data: bytes.slice(), fontExtraProperties: true })
+          .promise
         if (seq !== syncSeqRef.current) return
 
         setPdf((prev) => (prev ? { ...prev, doc: nextDoc, workingBytes: bytes } : prev))
@@ -405,7 +430,7 @@ export default function PdfEditorPage() {
 
   // ── History helpers ────────────────────────────────────────────────────────
   const pushHistory = useCallback(
-    (nextAnns: Annotation[], nextSuppressions = suppressionsRef.current) => {
+    (nextAnns: Annotation[], nextSuppressions: Suppression[] = suppressionsRef.current) => {
       setHistory((prev) => {
         const sliced = prev.slice(0, historyIdx + 1)
         const updated = [
@@ -475,6 +500,7 @@ export default function PdfEditorPage() {
       let nextSuppressions = suppressionsRef.current
       if (currentEntry.originalIndex !== null) {
         const sup: TextSuppression = {
+          kind: 'text',
           id: suppressionId,
           originalPageIndex: currentEntry.originalIndex,
           pdfX: item.pdfX,
@@ -487,22 +513,41 @@ export default function PdfEditorPage() {
         setSuppressions(nextSuppressions)
       }
 
+      // Same font, exact size, same baseline and same line width as the original text,
+      // so the replacement lands exactly where the original was.
+      const letterSpacing = fitLetterSpacing(
+        item.text,
+        item.fontFamily,
+        sampled.bold,
+        item.italic,
+        item.fontSize,
+        item.width,
+      )
+      const textWidth = measureTextWidth(
+        item.text,
+        item.fontFamily,
+        sampled.bold,
+        item.italic,
+        item.fontSize,
+        letterSpacing,
+      )
       const newText: TextAnnotation = {
         id: uid(),
         pageId: currentEntry.id,
         type: 'text',
         x: item.x,
-        y: item.y,
-        width: Math.max(item.width + 20, 80),
-        height: item.height,
+        y: item.baselineY - baselineFromTop(item.fontFamily, item.fontSize, true),
+        width: Math.max(item.width, textWidth) + 4,
+        height: lineHeightFactor(true) * item.fontSize,
         text: item.text,
         fontSize: item.fontSize,
         fontFamily: item.fontFamily,
         bold: sampled.bold,
-        italic: false,
+        italic: item.italic,
         color: sampled.color,
         backgroundColor: sampled.backgroundColor,
         compact: true,
+        letterSpacing: letterSpacing || undefined,
         suppressionId,
       }
       const nextAnns = [...annotationsRef.current, newText]
@@ -515,6 +560,36 @@ export default function PdfEditorPage() {
       if (currentEntry.originalIndex !== null) {
         void syncWorkingPdf(nextSuppressions, { annId: newText.id, suppressionId })
       }
+    },
+    [currentEntry, pushHistory, syncWorkingPdf],
+  )
+
+  /** Removes a shape that already exists in the PDF, optionally replacing it by an editable copy. */
+  const handleReplacePdfShape = useCallback(
+    (shape: PdfShape, replacement: Annotation | null) => {
+      if (!currentEntry || currentEntry.originalIndex === null) return
+      const sup: ShapeSuppression = {
+        kind: 'shape',
+        id: uid(),
+        originalPageIndex: currentEntry.originalIndex,
+        boxes: shape.members ?? [shape.box],
+      }
+      const nextSuppressions = [...suppressionsRef.current, sup]
+      suppressionsRef.current = nextSuppressions
+      setSuppressions(nextSuppressions)
+
+      const nextAnns = replacement ? [...annotationsRef.current, replacement] : annotationsRef.current
+      annotationsRef.current = nextAnns
+      setAnnotations(nextAnns)
+      pushHistory(nextAnns, nextSuppressions)
+
+      setShapeState((prev) => ({ ...prev, shapes: prev.shapes.filter((s) => s.id !== shape.id) }))
+      setSelectedShapeId(null)
+      if (replacement) {
+        setSelectedId(replacement.id)
+        setTool('select')
+      }
+      void syncWorkingPdf(nextSuppressions)
     },
     [currentEntry, pushHistory, syncWorkingPdf],
   )
@@ -614,7 +689,8 @@ export default function PdfEditorPage() {
         const pdfjs = await loadPdfJs()
         const rawBytes = new Uint8Array(await file.arrayBuffer())
         // Pass a copy so pdfjs worker doesn't detach rawBytes
-        const doc = await pdfjs.getDocument({ data: rawBytes.slice() }).promise
+        const doc = await pdfjs.getDocument({ data: rawBytes.slice(), fontExtraProperties: true })
+          .promise
         const entries: PageEntry[] = []
         for (let i = 0; i < doc.numPages; i++) {
           const p = await doc.getPage(i + 1)
@@ -681,6 +757,33 @@ export default function PdfEditorPage() {
       cancelled = true
     }
   }, [pdf, currentEntry])
+
+  // ── Existing vector shapes of the current page ─────────────────────────────
+  const workingBytes = pdf?.workingBytes ?? null
+  const currentOriginalIndex = currentEntry?.originalIndex ?? null
+  const wantShapes = tool === 'select' || tool === 'edit-shape'
+  useEffect(() => {
+    if (!workingBytes || currentOriginalIndex === null || !wantShapes) return
+    let cancelled = false
+    extractPageShapes(workingBytes, currentOriginalIndex)
+      .then((shapes) => {
+        if (!cancelled) {
+          setShapeState({ bytes: workingBytes, index: currentOriginalIndex, shapes })
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setShapeState({ bytes: workingBytes, index: currentOriginalIndex, shapes: [] })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [workingBytes, currentOriginalIndex, wantShapes])
+
+  // Only shapes extracted from the current bytes + page are shown (no stale shapes after a page change)
+  const pageShapes =
+    wantShapes && shapeState.bytes === workingBytes && shapeState.index === currentOriginalIndex
+      ? shapeState.shapes
+      : EMPTY_SHAPES
 
   // ── Zoom helpers ───────────────────────────────────────────────────────────
   const computeFitScale = useCallback(
@@ -905,6 +1008,8 @@ export default function PdfEditorPage() {
   }
 
   // ── Keyboard shortcuts ─────────────────────────────────────────────────────
+  const selectedShape = pageShapes.find((sh) => sh.id === selectedShapeId) ?? null
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!pdf || signModalOpen) return
@@ -928,13 +1033,27 @@ export default function PdfEditorPage() {
         duplicateAnnotation(selectedId)
         return
       }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedShape) {
+        e.preventDefault()
+        handleReplacePdfShape(selectedShape, null)
+        return
+      }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
         e.preventDefault()
         deleteAnnotation(selectedId)
         return
       }
+      if (e.key === 'Enter' && selectedId && tag !== 'BUTTON') {
+        const target = annotationsRef.current.find((a) => a.id === selectedId)
+        if (target?.type === 'text') {
+          e.preventDefault()
+          setEditingTextId(target.id)
+          return
+        }
+      }
       if (e.key === 'Escape') {
         setSelectedId(null)
+        setSelectedShapeId(null)
         setEditingTextId(null)
         setTool('select')
         return
@@ -952,6 +1071,8 @@ export default function PdfEditorPage() {
     pdf,
     signModalOpen,
     selectedId,
+    selectedShape,
+    handleReplacePdfShape,
     currentIndex,
     undo,
     redo,
@@ -1016,6 +1137,12 @@ export default function PdfEditorPage() {
   const showHighlightProps = tool === 'highlight' || selectedAnn?.type === 'highlight'
   const showRedactProps = tool === 'redact' || selectedAnn?.type === 'redact'
   const showColorProps = showTextProps || showStrokeProps
+  const hasContextual =
+    showColorProps ||
+    showHighlightProps ||
+    showRedactProps ||
+    tool === 'edit-text' ||
+    tool === 'edit-shape'
 
   const activeColor = selectedAnn && 'color' in selectedAnn ? selectedAnn.color : styleConfig.color
   const activeStroke =
@@ -1233,6 +1360,7 @@ export default function PdfEditorPage() {
             { id: 'select', icon: MousePointer2, label: t('tools.pdfEditor.tools.select') },
             { id: 'text', icon: Type, label: t('tools.pdfEditor.tools.text') },
             { id: 'edit-text', icon: TextCursorInput, label: t('tools.pdfEditor.tools.editText') },
+            { id: 'edit-shape', icon: BoxSelect, label: t('tools.pdfEditor.tools.editShape') },
             { id: 'draw', icon: PenTool, label: t('tools.pdfEditor.tools.draw') },
             { id: 'highlight', icon: Highlighter, label: t('tools.pdfEditor.tools.highlight') },
             { id: 'rect', icon: Square, label: t('tools.pdfEditor.tools.rect') },
@@ -1249,6 +1377,7 @@ export default function PdfEditorPage() {
               type="button"
               onClick={() => {
                 setTool(item.id)
+                setSelectedShapeId(null)
                 if (item.id !== 'select') {
                   setSelectedId(null)
                   setEditingTextId(null)
@@ -1298,14 +1427,27 @@ export default function PdfEditorPage() {
           <span className="hidden lg:inline">{t('tools.pdfEditor.tools.sign')}</span>
         </button>
 
-        {/* Contextual Properties */}
-        {(showColorProps || showHighlightProps || showRedactProps || tool === 'edit-text') && (
-          <ToolbarSeparator />
+      </div>
+
+      {/* ── Row 3: options of the active tool. Fixed height so the page below never jumps ── */}
+      <div className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-[var(--color-border)] bg-[var(--color-surface)] px-3 [&>*]:shrink-0">
+        {tool === 'edit-text' && (
+          <span className="px-1 text-xs font-medium text-[var(--color-accent)]">
+            {t('tools.pdfEditor.props.editTextHint')}
+          </span>
         )}
 
-        {tool === 'edit-text' && (
-          <span className="text-xs text-[var(--color-accent)] font-medium px-1">
-            {t('tools.pdfEditor.props.editTextHint')}
+        {tool === 'edit-shape' && (
+          <span className="px-1 text-xs font-medium text-[var(--color-accent)]">
+            {t('tools.pdfEditor.props.editShapeHint')}
+          </span>
+        )}
+
+        {!hasContextual && (
+          <span className="px-1 text-xs text-[var(--color-text-tertiary)]">
+            {tool === 'select'
+              ? t('tools.pdfEditor.props.selectHint')
+              : t('tools.pdfEditor.props.noOptions')}
           </span>
         )}
 
@@ -1422,7 +1564,7 @@ export default function PdfEditorPage() {
               onChange={(e) => {
                 const fontFamily = e.target.value as FontFamily
                 setStyleConfig((s) => ({ ...s, fontFamily }))
-                if (selectedAnn?.type === 'text') updateSelected({ fontFamily })
+                if (selectedAnn?.type === 'text') updateSelected({ fontFamily, letterSpacing: 0 })
               }}
               className="h-7 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-xs text-[var(--color-text-primary)]"
               aria-label={t('tools.pdfEditor.props.fontFamily')}
@@ -1437,14 +1579,17 @@ export default function PdfEditorPage() {
               onChange={(e) => {
                 const fontSize = Number(e.target.value)
                 setStyleConfig((s) => ({ ...s, fontSize }))
-                if (selectedAnn?.type === 'text') updateSelected({ fontSize })
+                if (selectedAnn?.type === 'text') updateSelected({ fontSize, letterSpacing: 0 })
               }}
               className="h-7 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-1.5 text-xs text-[var(--color-text-primary)]"
               aria-label={t('tools.pdfEditor.props.fontSize')}
             >
-              {[10, 12, 14, 16, 18, 22, 26, 32, 42, 56].map((sz) => (
+              {withCurrent(
+                [10, 12, 14, 16, 18, 22, 26, 32, 42, 56],
+                selectedAnn?.type === 'text' ? selectedAnn.fontSize : styleConfig.fontSize,
+              ).map((sz) => (
                 <option key={sz} value={sz}>
-                  {sz}px
+                  {fmtNum(sz)}px
                 </option>
               ))}
             </select>
@@ -1455,7 +1600,7 @@ export default function PdfEditorPage() {
                 const next =
                   selectedAnn?.type === 'text' ? !selectedAnn.bold : !styleConfig.bold
                 setStyleConfig((s) => ({ ...s, bold: next }))
-                if (selectedAnn?.type === 'text') updateSelected({ bold: next })
+                if (selectedAnn?.type === 'text') updateSelected({ bold: next, letterSpacing: 0 })
               }}
               title={t('tools.pdfEditor.props.bold')}
               className={cn(
@@ -1474,7 +1619,7 @@ export default function PdfEditorPage() {
                 const next =
                   selectedAnn?.type === 'text' ? !selectedAnn.italic : !styleConfig.italic
                 setStyleConfig((s) => ({ ...s, italic: next }))
-                if (selectedAnn?.type === 'text') updateSelected({ italic: next })
+                if (selectedAnn?.type === 'text') updateSelected({ italic: next, letterSpacing: 0 })
               }}
               title={t('tools.pdfEditor.props.italic')}
               className={cn(
@@ -1525,9 +1670,9 @@ export default function PdfEditorPage() {
               className="h-7 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-1.5 text-xs text-[var(--color-text-primary)]"
               aria-label={t('tools.pdfEditor.props.strokeWidth')}
             >
-              {[1, 2, 3, 5, 8, 12].map((w) => (
+              {withCurrent([1, 2, 3, 5, 8, 12], activeStroke).map((w) => (
                 <option key={w} value={w}>
-                  {w}px
+                  {fmtNum(w)}px
                 </option>
               ))}
             </select>
@@ -1594,6 +1739,7 @@ export default function PdfEditorPage() {
               onPointerDown={() => {
                 if (tool === 'select') {
                   setSelectedId(null)
+                  setSelectedShapeId(null)
                   setEditingTextId(null)
                 }
               }}
@@ -1636,10 +1782,17 @@ export default function PdfEditorPage() {
                 selectedId={selectedId}
                 editingTextId={editingTextId}
                 getPageCanvas={() => pageCanvasRef.current}
-                onSelect={setSelectedId}
+                pdfShapes={pageShapes}
+                selectedShapeId={selectedShapeId}
+                onSelect={(id) => {
+                  setSelectedId(id)
+                  if (id) setSelectedShapeId(null)
+                }}
+                onSelectShape={setSelectedShapeId}
                 onEditingTextIdChange={setEditingTextId}
                 onAddAnnotation={addAnnotation}
                 onReplacePdfText={handleReplacePdfText}
+                onReplacePdfShape={handleReplacePdfShape}
                 onUpdateAnnotation={updateAnnotation}
                 onCommitHistory={commitHistory}
                 onDeleteAnnotation={deleteAnnotation}

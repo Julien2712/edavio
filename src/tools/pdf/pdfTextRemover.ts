@@ -9,6 +9,7 @@ import {
 } from 'pdf-lib'
 
 export interface TextSuppression {
+  kind: 'text'
   id: string
   originalPageIndex: number
   /** Baseline start X in raw PDF user space */
@@ -21,11 +22,11 @@ export interface TextSuppression {
   pdfFontSize: number
 }
 
-type Matrix = [number, number, number, number, number, number]
+export type Matrix = [number, number, number, number, number, number]
 
-const IDENTITY: Matrix = [1, 0, 0, 1, 0, 0]
+export const IDENTITY: Matrix = [1, 0, 0, 1, 0, 0]
 
-function mulMat(m1: Matrix, m2: Matrix): Matrix {
+export function mulMat(m1: Matrix, m2: Matrix): Matrix {
   return [
     m1[0] * m2[0] + m1[1] * m2[2],
     m1[0] * m2[1] + m1[1] * m2[3],
@@ -36,7 +37,7 @@ function mulMat(m1: Matrix, m2: Matrix): Matrix {
   ]
 }
 
-interface Token {
+export interface Token {
   kind: 'op' | 'num' | 'str' | 'hex' | 'name' | 'array' | 'dict' | 'inline-img'
   raw: string
   num?: number
@@ -64,7 +65,7 @@ function isDelim(ch: string) {
   )
 }
 
-function tokenizeContentStream(src: string): Token[] {
+export function tokenizeContentStream(src: string): Token[] {
   const tokens: Token[] = []
   const len = src.length
   let i = 0
@@ -206,7 +207,7 @@ function tokenizeContentStream(src: string): Token[] {
   return tokens
 }
 
-function decodeStreamLatin1(stream: PDFRawStream): string {
+export function decodeStreamLatin1(stream: PDFRawStream): string {
   const bytes = decodePDFRawStream(stream).decode()
   let out = ''
   const chunk = 8192
@@ -216,7 +217,7 @@ function decodeStreamLatin1(stream: PDFRawStream): string {
   return out
 }
 
-function encodeLatin1(str: string): Uint8Array {
+export function encodeLatin1(str: string): Uint8Array {
   const bytes = new Uint8Array(str.length)
   for (let i = 0; i < str.length; i++) {
     bytes[i] = str.charCodeAt(i) & 0xff
@@ -255,11 +256,15 @@ function processContentString(params: {
     const py = eff[5]
     return targets.find((t) => {
       const tolY = Math.max(4, t.pdfFontSize * 0.45)
-      const tolX = Math.max(4, t.pdfFontSize * 0.5)
+      // A text operation belongs to the run when it STARTS inside it. The right edge is
+      // strict: the next run (e.g. an italic word after a regular one) starts right after
+      // the end of this one and must not be swallowed.
+      const tolLeft = Math.max(2, t.pdfFontSize * 0.3)
+      const insetRight = t.pdfFontSize * 0.05
       return (
         Math.abs(py - t.pdfY) <= tolY &&
-        px >= t.pdfX - tolX &&
-        px <= t.pdfMaxX + tolX
+        px >= t.pdfX - tolLeft &&
+        px < t.pdfMaxX - insetRight
       )
     })
   }

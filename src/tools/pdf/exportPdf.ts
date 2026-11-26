@@ -1,6 +1,60 @@
-import { degrees, LineCapStyle, PDFDocument, rgb, StandardFonts, type PDFFont, type PDFImage } from 'pdf-lib'
+import {
+  beginText,
+  degrees,
+  degreesToRadians,
+  endText,
+  LineCapStyle,
+  PDFDocument,
+  popGraphicsState,
+  pushGraphicsState,
+  BlendMode,
+  rgb,
+  rotateAndSkewTextRadiansAndTranslate,
+  setCharacterSpacing,
+  setFillingColor,
+  setFontAndSize,
+  showText,
+  StandardFonts,
+  type Color,
+  type PDFFont,
+  type PDFImage,
+  type PDFPage,
+} from 'pdf-lib'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
+import { baselineFromTop, lineHeightFactor, textPadding } from './fontInfo'
 import type { Annotation, FontFamily, PageEntry, Point } from './types'
+
+/** Draws one line of text; uses raw PDF operators when extra character spacing is needed. */
+function drawTextLine(
+  page: PDFPage,
+  font: PDFFont,
+  line: string,
+  o: { x: number; y: number; size: number; color: Color; rotation: number; charSpacing: number },
+) {
+  if (!o.charSpacing) {
+    page.drawText(line, {
+      x: o.x,
+      y: o.y,
+      size: o.size,
+      font,
+      color: o.color,
+      rotate: degrees(o.rotation),
+    })
+    return
+  }
+  const fontKey = page.node.newFontDictionary(font.name, font.ref)
+  page.pushOperators(
+    pushGraphicsState(),
+    beginText(),
+    setFillingColor(o.color),
+    setFontAndSize(fontKey, o.size),
+    setCharacterSpacing(o.charSpacing),
+    rotateAndSkewTextRadiansAndTranslate(degreesToRadians(o.rotation), 0, 0, o.x, o.y),
+    showText(font.encodeText(line)),
+    endText(),
+    popGraphicsState(),
+  )
+}
 
 function hexToRgb(hex: string) {
   const clean = hex.replace('#', '')
@@ -231,6 +285,7 @@ export async function exportAnnotatedPdf(params: {
           borderWidth: ann.strokeWidth,
           opacity: ann.opacity,
           borderOpacity: ann.opacity,
+          blendMode: ann.underlay ? BlendMode.Multiply : undefined,
         })
       } else if (ann.type === 'ellipse') {
         const [cx, cy] = vpToPdf(ann.x + ann.width / 2, ann.y + ann.height / 2)
@@ -337,25 +392,30 @@ export async function exportAnnotatedPdf(params: {
           })
         }
         if (!ann.text.trim()) continue
-        const pad = ann.compact ? 0 : 4
+        const pad = textPadding(ann.compact)
         const fontKey = getStandardFontKey(ann.fontFamily, ann.bold, ann.italic)
         const font = await getFont(fontKey)
-        const lines = wrapTextLines(ann.text, font, ann.fontSize, ann.width - pad * 2)
-        const lineHeight = ann.fontSize * (ann.compact ? 1.15 : 1.25)
+        // Text taken from a PDF line never wraps; typed text wraps inside its box
+        const lines = ann.compact
+          ? ann.text.split(/\r?\n/)
+          : wrapTextLines(ann.text, font, ann.fontSize, ann.width - pad * 2)
+        const lineHeight = ann.fontSize * lineHeightFactor(ann.compact)
+        // Same baseline as the on-screen box, computed from the real font metrics
+        const firstBaseline = baselineFromTop(ann.fontFamily, ann.fontSize, ann.compact)
         const col = hexToRgb(ann.color)
 
         lines.forEach((line, idx) => {
           if (!line) return
           const vx = ann.x + pad
-          const vy = ann.y + pad + ann.fontSize * 0.85 + idx * lineHeight
+          const vy = ann.y + firstBaseline + idx * lineHeight
           const [px, py] = vpToPdf(vx, vy)
-          outPage.drawText(line, {
+          drawTextLine(outPage, font, line, {
             x: px,
             y: py,
             size: ann.fontSize,
-            font,
             color: col,
-            rotate: degrees(totalRotation),
+            rotation: totalRotation,
+            charSpacing: ann.letterSpacing ?? 0,
           })
         })
       }

@@ -69,7 +69,8 @@
         "arrow": "Arrow",
         "redact": "Redact / Whiteout",
         "image": "Image",
-        "sign": "Signature"
+        "sign": "Signature",
+        "editShape": "Edit shape"
       },
       "props": {
         "color": "Color",
@@ -87,7 +88,12 @@
         "textPlaceholder": "Type your text…",
         "editTextHint": "Click any existing text in the PDF to edit it",
         "whiteout": "Whiteout",
-        "blackout": "Blackout"
+        "blackout": "Blackout",
+        "editShapeHint": "Click a shape of the PDF (frame, line…) to edit or delete it",
+        "selectHint": "Click an item to edit it · double-click a text to edit it · click the border of a PDF frame to delete it",
+        "noOptions": "No options for this tool",
+        "makeEditable": "Make editable (move, resize, change color)",
+        "makeEditableShort": "Edit"
       },
       "signature": {
         "title": "Add signature",

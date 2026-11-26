@@ -2,6 +2,7 @@ export type EditorTool =
   | 'select'
   | 'text'
   | 'edit-text'
+  | 'edit-shape'
   | 'draw'
   | 'highlight'
   | 'rect'
@@ -37,7 +38,10 @@ export interface TextAnnotation extends BaseAnnotation {
   italic: boolean
   color: string
   backgroundColor: string | null
+  /** Text taken from an existing PDF line: single line, no wrapping, tight line box */
   compact?: boolean
+  /** Extra spacing between characters (px at scale 1) used to match the original line width */
+  letterSpacing?: number
   suppressionId?: string
 }
 
@@ -51,6 +55,11 @@ export interface PathAnnotation extends BaseAnnotation {
 
 export interface ShapeAnnotation extends BaseAnnotation {
   type: 'rect' | 'ellipse' | 'redact'
+  /**
+   * The fill is painted underneath the page content (multiply blend), like the background
+   * of a frame in the original PDF: the text inside the shape stays visible.
+   */
+  underlay?: boolean
   x: number
   y: number
   width: number
@@ -103,12 +112,23 @@ export interface PageEntry {
 export interface DetectedTextItem {
   id: string
   text: string
+  /** Left edge of the run, viewport px at scale 1 */
   x: number
+  /** Top of the clickable box, viewport px at scale 1 */
   y: number
   width: number
   height: number
+  /** Exact font size (PDF points == px at scale 1), not rounded */
   fontSize: number
   fontFamily: FontFamily
+  /** Baseline position, viewport px at scale 1 */
+  baselineY: number
+  /** pdf.js internal font id, used to avoid merging runs of different fonts */
+  fontName: string
+  bold: boolean
+  italic: boolean
+  /** true when bold/italic/family come from the real font name (not a guess) */
+  fontKnown: boolean
   pdfX: number
   pdfMaxX: number
   pdfY: number
@@ -126,6 +146,44 @@ export interface ToolStyleConfig {
   strokeWidth: number
   highlightColor: string
   redactColor: string
+}
+
+/** Axis-aligned box in raw PDF user space (y axis points up) */
+export interface PdfBox {
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+}
+
+/** A vector shape (rectangle, line, path) that already exists inside the PDF */
+export interface PdfShape {
+  id: string
+  kind: 'rect' | 'line' | 'path'
+  paint: 'stroke' | 'fill' | 'both'
+  /** Geometric bounding box (without stroke thickness) */
+  box: PdfBox
+  /** Endpoints [x1, y1, x2, y2] for kind 'line' */
+  line?: [number, number, number, number]
+  strokeColor: string | null
+  fillColor: string | null
+  /** Stroke thickness in PDF points */
+  strokeWidth: number
+  /**
+   * Boxes of every raw drawing operation that makes up this shape. A frame drawn as
+   * four separate lines plus a background is reported as one rectangle with 5 members.
+   */
+  members?: PdfBox[]
+  /** kind 'line' only: the line ends with an arrow head at its second point */
+  arrow?: boolean
+}
+
+export interface ShapeSuppression {
+  kind: 'shape'
+  id: string
+  originalPageIndex: number
+  /** Raw drawing operations to remove (matched by bounding box) */
+  boxes: PdfBox[]
 }
 
 export const COLOR_SWATCHES = [

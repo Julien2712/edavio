@@ -69,7 +69,8 @@
         "arrow": "Flèche",
         "redact": "Masquer / Blanc",
         "image": "Image",
-        "sign": "Signature"
+        "sign": "Signature",
+        "editShape": "Modifier forme"
       },
       "props": {
         "color": "Couleur",
@@ -87,7 +88,12 @@
         "textPlaceholder": "Tapez votre texte…",
         "editTextHint": "Cliquez sur n'importe quel texte du PDF pour le modifier",
         "whiteout": "Correcteur blanc",
-        "blackout": "Censure noire"
+        "blackout": "Censure noire",
+        "editShapeHint": "Cliquez sur une forme du PDF (cadre, trait…) pour la modifier ou la supprimer",
+        "selectHint": "Cliquez sur un élément pour le modifier · double-clic sur un texte pour l'éditer · clic sur le bord d'un cadre du PDF pour le supprimer",
+        "noOptions": "Aucune option pour cet outil",
+        "makeEditable": "Rendre modifiable (déplacer, redimensionner, changer la couleur)",
+        "makeEditableShort": "Modifier"
       },
       "signature": {
         "title": "Ajouter une signature",
