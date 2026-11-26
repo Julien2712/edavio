@@ -36,7 +36,7 @@ const EDIT_TOOLS: EditTool[] = [
     extensionLabel: 'PDF',
     color: 'from-indigo-500 to-violet-600',
     iconBg: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/60 dark:text-indigo-400',
-    borderHover: 'hover:border-indigo-400',
+    borderHover: 'hover:border-[var(--color-text-tertiary)]',
     icon: FileText,
     route: '/pdf/edit',
     accept: 'application/pdf,.pdf',
@@ -182,17 +182,6 @@ function EditToolCard({ tool }: { tool: EditTool }) {
           </span>
         )}
       </div>
-
-      {/* Gradient bottom bar on hover */}
-      {tool.available && (
-        <span
-          className={cn(
-            'absolute inset-x-0 bottom-0 h-0.5 rounded-b-2xl bg-gradient-to-r opacity-0 transition-opacity duration-200 group-hover:opacity-100',
-            tool.color,
-          )}
-          aria-hidden
-        />
-      )}
 
       <input
         ref={fileInputRef}
