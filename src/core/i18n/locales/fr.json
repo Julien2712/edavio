@@ -130,7 +130,8 @@
         "basic": "Basiques",
         "lines": "Lignes",
         "more": "Autres formes"
-      }
+      },
+      "mirrorPage": "Miroir (inverser gauche/droite)"
     },
     "documentEditor": {
       "name": "Éditeur de documents",

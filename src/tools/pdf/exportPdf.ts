@@ -451,6 +451,20 @@ export async function exportAnnotatedPdf(params: {
         })
       }
     }
+
+    if (entry.mirrored) {
+      // Flip the whole page (original content + annotations) left/right as displayed
+      const box = outPage.getCropBox()
+      const horizontalIsX = totalRotation === 0 || totalRotation === 180
+      const m = horizontalIsX
+        ? [-1, 0, 0, 1, 2 * box.x + box.width, 0]
+        : [1, 0, 0, -1, 0, 2 * box.y + box.height]
+      const start = outDoc.context.register(
+        outDoc.context.stream(`q ${m.join(' ')} cm\n`),
+      )
+      const end = outDoc.context.register(outDoc.context.stream('\nQ'))
+      outPage.node.wrapContentStreams(start, end)
+    }
   }
 
   return await outDoc.save()

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
-import { ArrowDown, ArrowUp, Copy, FilePlus2, RotateCw, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Copy, FilePlus2, FlipHorizontal2, RotateCw, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Annotation, PageEntry } from './types'
 
@@ -63,7 +63,10 @@ function ThumbnailCanvas({
   return (
     <canvas
       ref={canvasRef}
-      className="mx-auto block rounded-sm border border-[var(--color-border)] bg-white shadow-xs"
+      className={cn(
+        'mx-auto block rounded-sm border border-[var(--color-border)] bg-white shadow-xs',
+        entry.mirrored && '-scale-x-100',
+      )}
     />
   )
 }
@@ -75,6 +78,7 @@ export function PageThumbnails({
   annotations,
   onSelectPage,
   onRotatePage,
+  onMirrorPage,
   onDuplicatePage,
   onDeletePage,
   onMovePage,
@@ -87,6 +91,7 @@ export function PageThumbnails({
   annotations: Annotation[]
   onSelectPage: (index: number) => void
   onRotatePage: (index: number) => void
+  onMirrorPage: (index: number) => void
   onDuplicatePage: (index: number) => void
   onDeletePage: (index: number) => void
   onMovePage: (index: number, dir: -1 | 1) => void
@@ -192,6 +197,20 @@ export function PageThumbnails({
                   className="rounded p-1 text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-text-primary)]"
                 >
                   <RotateCw className="size-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onMirrorPage(idx)}
+                  title={t('tools.pdfEditor.mirrorPage')}
+                  aria-pressed={!!entry.mirrored}
+                  className={cn(
+                    'rounded p-1 hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-text-primary)]',
+                    entry.mirrored
+                      ? 'text-[var(--color-accent)]'
+                      : 'text-[var(--color-text-secondary)]',
+                  )}
+                >
+                  <FlipHorizontal2 className="size-3" />
                 </button>
                 <button
                   type="button"

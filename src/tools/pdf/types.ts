@@ -108,6 +108,8 @@ export interface PageEntry {
   originalIndex: number | null
   /** Additional user rotation in degrees (0, 90, 180, 270) */
   userRotation: 0 | 90 | 180 | 270
+  /** Page flipped left/right (mirror), applied to content and annotations */
+  mirrored?: boolean
   /** Intrinsic width at scale 1 (in PDF points) when unrotated by user */
   baseWidth: number
   /** Intrinsic height at scale 1 (in PDF points) when unrotated by user */

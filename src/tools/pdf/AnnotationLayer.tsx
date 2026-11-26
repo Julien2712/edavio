@@ -276,6 +276,7 @@ function sampleColorsFromCanvas(
 export function AnnotationLayer({
   pageId,
   pdfjsPage,
+  mirrored,
   userRotation,
   vpWidth,
   vpHeight,
@@ -302,6 +303,8 @@ export function AnnotationLayer({
 }: {
   pageId: string
   pdfjsPage: PDFPageProxy | null
+  /** The page container is flipped left/right: horizontal pointer positions are inverted */
+  mirrored: boolean
   userRotation: 0 | 90 | 180 | 270
   vpWidth: number
   vpHeight: number
@@ -535,11 +538,11 @@ export function AnnotationLayer({
     (clientX: number, clientY: number): Point => {
       const rect = layerRef.current!.getBoundingClientRect()
       return {
-        x: (clientX - rect.left) / scale,
+        x: (mirrored ? rect.right - clientX : clientX - rect.left) / scale,
         y: (clientY - rect.top) / scale,
       }
     },
-    [scale],
+    [scale, mirrored],
   )
 
   const handleLayerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {

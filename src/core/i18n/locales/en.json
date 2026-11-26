@@ -130,7 +130,8 @@
         "basic": "Basic",
         "lines": "Lines",
         "more": "More shapes"
-      }
+      },
+      "mirrorPage": "Mirror (flip left/right)"
     },
     "documentEditor": {
       "name": "Document Editor",

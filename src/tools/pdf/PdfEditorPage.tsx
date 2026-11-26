@@ -892,6 +892,15 @@ export default function PdfEditorPage() {
     [commitPages],
   )
 
+  const mirrorPage = useCallback(
+    (idx: number) => {
+      commitPages(
+        pagesRef.current.map((p, i) => (i === idx ? { ...p, mirrored: !p.mirrored } : p)),
+      )
+    },
+    [commitPages],
+  )
+
   const duplicatePage = useCallback(
     (idx: number) => {
       const target = pages[idx]
@@ -1896,6 +1905,7 @@ export default function PdfEditorPage() {
               setPageInput(String(idx + 1))
             }}
             onRotatePage={rotatePage}
+            onMirrorPage={mirrorPage}
             onDuplicatePage={duplicatePage}
             onDeletePage={deletePage}
             onMovePage={movePage}
@@ -1911,6 +1921,7 @@ export default function PdfEditorPage() {
           {currentEntry && (
             <div
               className="relative"
+              style={currentEntry.mirrored ? { transform: 'scaleX(-1)' } : undefined}
               onPointerDown={() => {
                 if (tool === 'select') {
                   setSelectedId(null)
@@ -1948,6 +1959,7 @@ export default function PdfEditorPage() {
                 pageId={currentEntry.id}
                 pdfjsPage={pageProxy}
                 userRotation={currentEntry.userRotation}
+                mirrored={!!currentEntry.mirrored}
                 vpWidth={Math.round(vpSize.width * scale)}
                 vpHeight={Math.round(vpSize.height * scale)}
                 scale={scale}
