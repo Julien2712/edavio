@@ -16,7 +16,7 @@ export function Header() {
           to="/"
           className="flex shrink-0 items-center gap-2 text-[var(--color-text-primary)] transition-opacity hover:opacity-70"
         >
-          <span className="flex size-6 items-center justify-center rounded-md bg-[var(--color-accent)] text-[13px] font-bold leading-none text-white">
+          <span className="flex size-6 items-center justify-center rounded-md bg-[var(--color-text-primary)] text-[13px] font-bold leading-none text-[var(--color-surface)]">
             E
           </span>
           <span className="text-sm font-semibold tracking-tight">{t('app.name')}</span>
