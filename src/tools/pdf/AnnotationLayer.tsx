@@ -50,6 +50,7 @@ function EditableTextArea({
   placeholder,
   style,
   noWrap,
+  rows,
   onChange,
   onDone,
 }: {
@@ -57,6 +58,8 @@ function EditableTextArea({
   placeholder: string
   style: React.CSSProperties
   noWrap?: boolean
+  /** Visible lines: a textarea defaults to 2 rows, which made the frame taller than the text */
+  rows: number
   onChange: (value: string, scrollHeight: number) => void
   onDone: () => void
 }) {
@@ -80,6 +83,7 @@ function EditableTextArea({
       ref={ref}
       value={value}
       placeholder={placeholder}
+      rows={rows}
       wrap={noWrap ? 'off' : undefined}
       spellCheck={false}
       onPointerDown={(e) => e.stopPropagation()}
@@ -99,7 +103,7 @@ function EditableTextArea({
           onDone()
         }
       }}
-      className="cursor-text pointer-events-auto h-full min-h-full w-full resize-none bg-transparent outline-none"
+      className="pointer-events-auto block h-full min-h-full w-full cursor-text resize-none bg-transparent outline-none"
       style={noWrap ? { ...style, whiteSpace: 'pre', overflow: 'hidden' } : style}
     />
   )
@@ -1331,7 +1335,7 @@ export function AnnotationLayer({
                   : '',
                 isEditing ? 'pointer-events-auto' : '',
                 tool !== 'select' && !clickToEdit && !isEditing ? 'pointer-events-none' : '',
-                isEditing && 'outline-2 outline-dashed outline-[var(--color-accent)]',
+                isEditing && 'outline-1 outline-dashed outline-[var(--color-accent)]',
               )}
               style={{
                 left: `${ann.x * scale}px`,
@@ -1348,10 +1352,13 @@ export function AnnotationLayer({
                   value={ann.text}
                   placeholder={t('tools.pdfEditor.props.textPlaceholder')}
                   noWrap={ann.compact}
+                  rows={Math.max(1, ann.text.split('\n').length)}
                   onChange={(val, scrollH) => {
                     const patch: Partial<TextAnnotation> = {
                       text: val,
-                      height: Math.max(ann.height, scrollH / scale),
+                      height: ann.compact
+                        ? lineHeightFactor(true) * ann.fontSize * Math.max(1, val.split('\n').length)
+                        : Math.max(ann.height, scrollH / scale),
                     }
                     if (ann.compact) {
                       // Single-line text taken from the PDF grows sideways instead of wrapping
