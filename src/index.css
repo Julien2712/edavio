@@ -197,3 +197,17 @@ input[type="text"], input[type="number"], textarea {
 }
 /* But not for transforms / layout to avoid slowing animations */
 [class*="animate-"], canvas, svg { transition: none; }
+
+/* Desktop-app feel: only the document text and form fields are selectable */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+input,
+textarea,
+[contenteditable='true'],
+.textLayer,
+.textLayer * {
+  -webkit-user-select: text;
+  user-select: text;
+}

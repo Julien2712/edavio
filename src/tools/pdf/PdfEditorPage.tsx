@@ -976,6 +976,23 @@ export default function PdfEditorPage() {
     [pages.length, currentIndex, commitPages],
   )
 
+  const reorderPage = useCallback(
+    (from: number, to: number) => {
+      const list = [...pagesRef.current]
+      if (from === to || from < 0 || from >= list.length || to < 0 || to >= list.length) return
+      const currentId = list[currentIndex]?.id
+      const [item] = list.splice(from, 1)
+      if (!item) return
+      list.splice(to, 0, item)
+      commitPages(list)
+      // The page being looked at stays selected, wherever it ended up
+      const nextIdx = Math.max(0, list.findIndex((p) => p.id === currentId))
+      setCurrentIndex(nextIdx)
+      setPageInput(String(nextIdx + 1))
+    },
+    [currentIndex, commitPages],
+  )
+
   // ── Insert Image & Signature ───────────────────────────────────────────────
   const insertImageOnPage = useCallback(
     (dataUrl: string, aspectRatio: number, kind: 'image' | 'sign') => {
@@ -1071,6 +1088,19 @@ export default function PdfEditorPage() {
       if (isTextField) return
 
       const mod = e.ctrlKey || e.metaKey
+      if (mod && e.key.toLowerCase() === 'a') {
+        // Select the text of the page only, not the whole application window
+        e.preventDefault()
+        const layer = viewportRef.current?.querySelector('.textLayer')
+        const sel = window.getSelection()
+        if (layer && sel) {
+          const range = document.createRange()
+          range.selectNodeContents(layer)
+          sel.removeAllRanges()
+          sel.addRange(range)
+        }
+        return
+      }
       if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) {
         e.preventDefault()
         undo()
@@ -1869,6 +1899,7 @@ export default function PdfEditorPage() {
             onDuplicatePage={duplicatePage}
             onDeletePage={deletePage}
             onMovePage={movePage}
+            onReorderPage={reorderPage}
             onAddBlankPage={addBlankPage}
           />
         )}

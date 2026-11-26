@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { ArrowDown, ArrowUp, Copy, FilePlus2, RotateCw, Trash2 } from 'lucide-react'
@@ -78,6 +78,7 @@ export function PageThumbnails({
   onDuplicatePage,
   onDeletePage,
   onMovePage,
+  onReorderPage,
   onAddBlankPage,
 }: {
   doc: PDFDocumentProxy
@@ -89,9 +90,19 @@ export function PageThumbnails({
   onDuplicatePage: (index: number) => void
   onDeletePage: (index: number) => void
   onMovePage: (index: number, dir: -1 | 1) => void
+  /** Drag and drop: move the page at `from` so that it ends up at index `to` */
+  onReorderPage: (from: number, to: number) => void
   onAddBlankPage: () => void
 }) {
   const { t } = useTranslation()
+  const [dragFrom, setDragFrom] = useState<number | null>(null)
+  /** Slot where the page would be inserted (0 = before the first page, n = after the last) */
+  const [slot, setSlot] = useState<number | null>(null)
+
+  const endDrag = () => {
+    setDragFrom(null)
+    setSlot(null)
+  }
 
   return (
     <aside className="flex w-48 shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface-raised)]">
@@ -117,9 +128,35 @@ export function PageThumbnails({
           return (
             <div
               key={entry.id}
+              draggable
+              onDragStart={(e) => {
+                setDragFrom(idx)
+                e.dataTransfer.effectAllowed = 'move'
+                e.dataTransfer.setData('text/plain', String(idx))
+              }}
+              onDragOver={(e) => {
+                if (dragFrom === null) return
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'move'
+                const r = e.currentTarget.getBoundingClientRect()
+                const next = e.clientY < r.top + r.height / 2 ? idx : idx + 1
+                setSlot((cur) => (cur === next ? cur : next))
+              }}
+              onDrop={(e) => {
+                e.preventDefault()
+                if (dragFrom !== null && slot !== null) {
+                  const to = dragFrom < slot ? slot - 1 : slot
+                  if (to !== dragFrom) onReorderPage(dragFrom, to)
+                }
+                endDrag()
+              }}
+              onDragEnd={endDrag}
               onClick={() => onSelectPage(idx)}
               className={cn(
-                'group relative cursor-pointer rounded-xl border p-2 transition-all',
+                'group relative cursor-grab rounded-xl border p-2 transition-all active:cursor-grabbing',
+                dragFrom === idx && 'opacity-40',
+                dragFrom !== null && slot === idx && dragFrom !== idx && 'before:absolute before:-top-[7px] before:left-1 before:right-1 before:h-0.5 before:rounded-full before:bg-[var(--color-accent)]',
+                dragFrom !== null && slot === idx + 1 && slot === pages.length && dragFrom !== idx && 'after:absolute after:-bottom-[7px] after:left-1 after:right-1 after:h-0.5 after:rounded-full after:bg-[var(--color-accent)]',
                 active
                   ? 'border-[var(--color-accent)] bg-[var(--color-accent-light)] ring-2 ring-[var(--color-accent)]/20'
                   : 'border-transparent hover:border-[var(--color-border)] hover:bg-[var(--color-surface)]',
