@@ -177,6 +177,15 @@ input[type="text"], input[type="number"], textarea {
   border-radius: var(--radius-sm);
 }
 
+/* Spreadsheet: the cell editor and grid already show their own selection frame */
+[data-xl-root] textarea:focus-visible,
+[data-xl-root] [tabindex='0']:focus-visible,
+[data-xl-root] input:focus-visible {
+  outline: none;
+  border-radius: 0;
+}
+[data-xl-root] input:focus-visible { border-radius: var(--radius-sm); }
+
 /* ───── Selection ───── */
 ::selection {
   background: var(--color-brand-200);
