@@ -47,7 +47,7 @@ export function TabBar() {
         const Icon = tool?.icon
         const active = tab.id === ws.activeId
         return (
-          <div key={tab.id} role="tab" aria-selected={active}
+          <div key={tab.id} role="tab" aria-selected={active} onMouseDown={(e) => { if (e.button === 1) e.preventDefault() }} onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); ws.requestClose(tab.id) } }}
             className={cn('group flex h-8 max-w-[220px] shrink-0 items-center gap-1.5 rounded-t-lg border border-b-0 pl-3 pr-1 text-xs',
               active ? 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)]' : 'border-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-raised)]')}>
             <button type="button" className="flex min-w-0 items-center gap-1.5 py-1" onClick={() => { ws.activate(tab.id); navigate(tab.route) }}>
