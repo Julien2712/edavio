@@ -52,7 +52,7 @@ export default function SpreadsheetEditorPage() {
   const tabOrigin = useRef<number | null>(null)
   const [ctx, setCtx] = useState<{ x: number; y: number } | null>(null)
   const [find, setFind] = useState<{ q: string; rep: string; open: boolean; msg: string } | null>(null)
-  const [dialog, setDialog] = useState<null | { kind: 'cf' } | { kind: 'prompt'; title: string; value: string; onOk: (v: string) => void } | { kind: 'filter'; col: number; x: number; y: number } | { kind: 'validation' } | { kind: 'pivot' }>(null)
+  const [dialog, setDialog] = useState<null | { kind: 'cf' } | { kind: 'prompt'; title: string; value: string; onOk: (v: string) => void } | { kind: 'filter'; col: number; x: number; y: number } | { kind: 'size' } | { kind: 'validation' } | { kind: 'pivot' }>(null)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -901,6 +901,9 @@ export default function SpreadsheetEditorPage() {
               <Sep />
               <Tb icon={Rows3} label={x('insRows')} onClick={() => insertRows(false)}>{x('insRows')}</Tb>
               <Tb icon={Columns3} label={x('insCols')} onClick={() => insertCols(false)}>{x('insCols')}</Tb>
+              <Tb icon={Rows3} label={x('delRows')} onClick={deleteRows}>{x('delRows')}</Tb>
+              <Tb icon={Columns3} label={x('delCols')} onClick={deleteCols}>{x('delCols')}</Tb>
+              <Tb icon={Table2} label={x('sheetSize')} onClick={() => setDialog({ kind: 'size' })}>{x('sheetSize')}</Tb>
               <span className="ml-3 max-w-sm text-xs text-[var(--color-text-muted)]">{x('chartHint')}</span>
             </div>
           )}
@@ -1063,6 +1066,7 @@ export default function SpreadsheetEditorPage() {
       )}
 
       {dialog?.kind === 'prompt' && <PromptDialog x={x} d={dialog} onClose={() => setDialog(null)} />}
+      {dialog?.kind === 'size' && <SizeDialog x={x} rows={sheet.rows} cols={sheet.cols} used={usedRange(sheet)} onClose={() => setDialog(null)} onOk={(r, c) => { edit((s) => ({ ...s, rows: r, cols: c })); setSel(single(Math.min(active.r, r - 1), Math.min(active.c, c - 1))) }} />}
       {dialog?.kind === 'validation' && <ValidationDialog x={x} onClose={() => setDialog(null)} current={validationAt(active.r, active.c)} onOk={(v) => { edit((s) => ({ ...s, validations: [...(s.validations ?? []).filter((o) => !overlaps(o.range, prim)), ...(v ? [{ ...v, range: prim }] : [])] })); setDialog(null) }} />}
       {dialog?.kind === 'pivot' && <PivotDialog x={x} onClose={() => setDialog(null)} headers={range(regionOf().c1, regionOf().c2).map((c) => ({ c, name: String(valueOf(regionOf().r1, c) ?? colName(c)) }))} onOk={(o) => { createPivot(o); setDialog(null) }} />}
       {dialog?.kind === 'cf' && <CfDialog x={x} onClose={() => setDialog(null)} onOk={(rule) => { addRule(rule); setDialog(null) }} />}
@@ -1270,6 +1274,21 @@ function FilterPopup({ x, d, sheet, calc, si, onClose, onApply, onClear, onSort 
         </div>
       )}
     </PopMenu>
+  )
+}
+
+function SizeDialog({ x, rows, cols, used, onClose, onOk }: { x: (k: string) => string; rows: number; cols: number; used: Range | null; onClose: () => void; onOk: (r: number, c: number) => void }) {
+  const minR = (used?.r2 ?? 0) + 1, minC = (used?.c2 ?? 0) + 1
+  const [r, setR] = useState(String(rows)), [c, setC] = useState(String(cols))
+  const nr = clamp(Math.round(Number(r) || rows), minR, 5000), nc = clamp(Math.round(Number(c) || cols), minC, 200)
+  const inp = 'mb-2 h-9 w-full rounded border border-[var(--color-border)] bg-transparent px-2 text-sm outline-none'
+  return (
+    <Modal title={x('sheetSize')} onClose={onClose}>
+      <label className="text-xs">{x('rowsCount')} (≥ {minR}, ≤ 5000)<input type="number" value={r} onChange={(e) => setR(e.target.value)} className={inp} /></label>
+      <label className="text-xs">{x('colsCount')} (≥ {minC}, ≤ 200)<input type="number" value={c} onChange={(e) => setC(e.target.value)} className={inp} /></label>
+      <p className="mb-3 text-xs text-[var(--color-text-muted)]">{x('sizeHint')}</p>
+      <div className="flex justify-end gap-2"><Button size="sm" variant="secondary" onClick={onClose}>{x('cancel')}</Button><Button size="sm" onClick={() => { onOk(nr, nc); onClose() }}>OK</Button></div>
+    </Modal>
   )
 }
 

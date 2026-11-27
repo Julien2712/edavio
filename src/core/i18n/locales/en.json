@@ -777,6 +777,12 @@
     "pivotAgg": "Calculation",
     "agg_SUM": "Sum",
     "agg_COUNT": "Count",
-    "agg_AVERAGE": "Average"
+    "agg_AVERAGE": "Average",
+    "delRows": "Delete rows",
+    "delCols": "Delete columns",
+    "sheetSize": "Sheet size",
+    "rowsCount": "Number of rows",
+    "colsCount": "Number of columns",
+    "sizeHint": "The minimum is the last used cell."
   }
 }
