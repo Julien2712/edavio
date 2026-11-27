@@ -82,7 +82,7 @@ const EDIT_TOOLS: EditTool[] = [
     borderHover: 'hover:border-[var(--color-text-tertiary)]',
     icon: Presentation,
     route: '/presentations/edit',
-    accept: '.ppt,.pptx',
+    accept: '.pptx',
     available: true,
     features: ['home.ppt.feat1', 'home.ppt.feat2', 'home.ppt.feat3'],
   },
@@ -107,12 +107,8 @@ function EditToolCard({ tool }: { tool: EditTool }) {
 
   const handleOpen = useCallback(() => {
     if (!tool.available) return
-    if (tool.id === 'ppt') {
-      navigate(tool.route)
-      return
-    }
     fileInputRef.current?.click()
-  }, [navigate, tool.available, tool.id, tool.route])
+  }, [tool.available])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

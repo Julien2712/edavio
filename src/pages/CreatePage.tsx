@@ -65,6 +65,7 @@ const CREATE_OPTIONS: CreateOption[] = [
     iconBg: 'bg-orange-100 text-orange-600 dark:bg-orange-900/60 dark:text-orange-400',
     icon: Presentation,
     route: '/presentations/edit',
+    state: { newBlank: true },
     features: ['createPage.ppt.f1', 'createPage.ppt.f2', 'createPage.ppt.f3'],
   },
 ]

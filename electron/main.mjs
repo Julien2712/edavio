@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, session, shell } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -60,6 +60,10 @@ if (!app.requestSingleInstanceLock()) {
   })
 
   app.whenReady().then(() => {
+    // Lets the editors list the fonts installed on this computer (window.queryLocalFonts)
+    const ses = session.defaultSession
+    ses.setPermissionRequestHandler((_wc, permission, cb) => cb(permission === 'local-fonts'))
+    ses.setPermissionCheckHandler((_wc, permission) => permission === 'local-fonts')
     createWindow()
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()
