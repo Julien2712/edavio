@@ -29,7 +29,8 @@
       "editHint": "Modifiez vos PDF, documents, tableurs et présentations",
       "readHint": "Ouvrez et parcourez vos documents confortablement",
       "compressHint": "Réduisez le poids de vos fichiers sans perte visible",
-      "convertHint": "Changez le format de vos images et documents"
+      "convertHint": "Changez le format de vos images et documents",
+      "createHint": "Partez de zéro : PDF, document, tableur ou présentation"
     },
     "privacyNote": "Vos fichiers restent sur votre appareil. Aucun envoi de données, aucun compte requis.",
     "heroFeature1": "Sans internet",
@@ -54,6 +55,16 @@
       "feat1": "Format PowerPoint (.pptx)",
       "feat2": "Diapositives & transitions",
       "feat3": "Export PDF"
+    },
+    "badge": "Suite bureautique 100 % locale",
+    "newDocument": "Nouveau document",
+    "quickStart": "Démarrage rapide",
+    "quickBlank": "Fichier vierge",
+    "quick": {
+      "pdf": "PDF",
+      "docs": "Document",
+      "excel": "Tableur",
+      "ppt": "Présentation"
     }
   },
   "tools": {
@@ -735,7 +746,37 @@
       "home": "Accueil",
       "formulas": "Formules",
       "data": "Données",
-      "view": "Affichage"
-    }
+      "view": "Affichage",
+      "insert": "Insertion"
+    },
+    "invalidValue": "Valeur refusée par la validation de données.",
+    "chartNeedData": "Sélectionnez au moins deux colonnes de données.",
+    "chartTitle": "Graphique",
+    "pivotName": "Tableau croisé",
+    "total": "Total",
+    "chartColumn": "Histogramme",
+    "chartBar": "Barres",
+    "chartLine": "Courbes",
+    "chartPie": "Secteurs",
+    "pivot": "Tableau croisé dynamique",
+    "insRows": "Insérer lignes",
+    "insCols": "Insérer colonnes",
+    "chartHint": "Sélectionnez des données (1re colonne = étiquettes) puis choisissez un graphique.",
+    "validation": "Validation des données",
+    "val_list": "Liste déroulante",
+    "val_whole": "Nombre entier",
+    "val_decimal": "Nombre décimal",
+    "val_items": "Valeurs séparées par des virgules",
+    "val_min": "Minimum",
+    "val_max": "Maximum",
+    "val_clear": "Supprimer",
+    "pivotHint": "Crée une feuille avec des formules (SOMME.SI.ENS…) basées sur la zone sélectionnée.",
+    "pivotRows": "Lignes",
+    "pivotCols": "Colonnes (facultatif)",
+    "pivotValues": "Valeurs",
+    "pivotAgg": "Calcul",
+    "agg_SUM": "Somme",
+    "agg_COUNT": "Nombre",
+    "agg_AVERAGE": "Moyenne"
   }
 }

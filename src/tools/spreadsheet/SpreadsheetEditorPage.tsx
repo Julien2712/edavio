@@ -4,7 +4,7 @@ import {
   AlignCenter, AlignJustify, AlignLeft, AlignRight, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, ArrowDownAZ, ArrowUpAZ,
   Bold, Grid2x2 as Borders, ClipboardPaste, Columns3, Copy, Download, Eraser, FilePlus2, Filter, Italic, IndentDecrease, IndentIncrease, Merge, Paintbrush, PaintBucket,
   Percent, Plus, Redo2, Rows3, Save, Scissors, Search, Sigma, Snowflake, Strikethrough, Table2, Type, Underline, Undo2, Upload, WrapText, Eye, Grid3x3,
-  ListFilter, Palette, X, FileSpreadsheet, ChevronLeft, ChevronRight, Hash, CircleDollarSign, Calendar,
+  ListFilter, Palette, X, FileSpreadsheet, ChevronLeft, ChevronRight, ChartColumn, ChartLine, ChartPie, ChartBar, ListChecks, Hash, CircleDollarSign, Calendar,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -13,12 +13,13 @@ import { Calc, FUNCTION_NAMES, FErr, canonicalizeFormula, shiftFormula, type V }
 import { NUMBER_FORMATS, formatValue, parseTyped } from './format'
 import {
   COL_HEADER_H, DEFAULT_COL_W, DEFAULT_FONT, DEFAULT_ROW_H, DEFAULT_SIZE, MIN_COL_W, MIN_ROW_H, ROW_HEADER_W, cellRef, colName, inRange, key, newSheet, normRange, parseRef, rangeLabel, uid,
-  type Border, type BorderStyle, type CellStyle, type CondRule, type Range, type RuleType, type Sheet, type Workbook,
+  type Border, type BorderStyle, type CellStyle, type ChartDef, type ChartKind, type CondRule, type Range, type RuleType, type Sheet, type Workbook,
 } from './model'
 import {
   allRanges, applyBorders, clearCells, copyRange, currentRegion, fillSeries, forEachCell, interpretInput, looksLikeHeader, mergeCells, parseTSV, pasteClip, patchStyle, restructure,
   selRange, setRaw, single, sortRange, toTSV, unmergeCells, updateSheet, usedRange, type BorderPreset, type ClipData, type PasteMode, type Sel,
 } from './ops'
+import { ChartView, buildChartData } from './Charts'
 import { exportCsv, exportXlsx, importSpreadsheet } from './xlsxIO'
 import { ColorMenu, FontPicker, Menu, MenuItem, MenuTitle, Sep, SizeField, Tb } from '@/tools/presentation/ui'
 import { useLocation, useNavigate } from '@/workspace/tabRouter'
@@ -46,10 +47,12 @@ export default function SpreadsheetEditorPage() {
   const [zoom, setZoom] = useState(1)
   const [showFormulas, setShowFormulas] = useState(false)
   const [painter, setPainter] = useState<CellStyle | null>(null)
-  const [tab, setTab] = useState<'home' | 'formulas' | 'data' | 'view'>('home')
+  const [tab, setTab] = useState<'home' | 'insert' | 'formulas' | 'data' | 'view'>('home')
+  const [chartSel, setChartSel] = useState<string | null>(null)
+  const tabOrigin = useRef<number | null>(null)
   const [ctx, setCtx] = useState<{ x: number; y: number } | null>(null)
   const [find, setFind] = useState<{ q: string; rep: string; open: boolean; msg: string } | null>(null)
-  const [dialog, setDialog] = useState<null | { kind: 'cf' } | { kind: 'prompt'; title: string; value: string; onOk: (v: string) => void } | { kind: 'filter'; col: number; x: number; y: number }>(null)
+  const [dialog, setDialog] = useState<null | { kind: 'cf' } | { kind: 'prompt'; title: string; value: string; onOk: (v: string) => void } | { kind: 'filter'; col: number; x: number; y: number } | { kind: 'validation' } | { kind: 'pivot' }>(null)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -251,7 +254,16 @@ export default function SpreadsheetEditorPage() {
     setEditing({ r: rr, c: cc, text: text ?? displayRaw(rr, cc), mode: text !== undefined ? 'enter' : 'edit' })
   }
 
+  const validationAt = (r: number, c: number) => sheet?.validations?.find((v) => inRange(v.range, r, c))
   const writeCell = (r: number, c: number, text: string) => {
+    const val = validationAt(r, c)
+    if (val && text !== '') {
+      const num = Number(text.replace(',', '.'))
+      const bad =
+        (val.type === 'list' && !(val.items ?? []).some((i) => i.toLowerCase() === text.toLowerCase())) ||
+        (val.type !== 'list' && (!Number.isFinite(num) || (val.type === 'whole' && !Number.isInteger(num)) || (val.min !== undefined && num < val.min) || (val.max !== undefined && num > val.max)))
+      if (bad) { setNotice(x('invalidValue')); return }
+    }
     const existingFmt = sheet?.cells[key(r, c)]?.s?.fmt
     const out = interpretInput(text, existingFmt)
     const raw = out.raw[0] === '=' ? canonicalizeFormula(out.raw) : out.raw
@@ -264,6 +276,7 @@ export default function SpreadsheetEditorPage() {
     setEditing(null)
     writeCell(e.r, e.c, e.text)
     if (move === 'none') return
+    if (move !== 'right' && move !== 'left' && move !== 'down') tabOrigin.current = null
     const g = prim
     const multi = g.r1 !== g.r2 || g.c1 !== g.c2
     let r = e.r, c = e.c
@@ -275,7 +288,11 @@ export default function SpreadsheetEditorPage() {
       reveal(r, c)
       return
     }
-    if (move === 'down') r++; else if (move === 'up') r--; else if (move === 'right') c++; else c--
+    if (move === 'right' || move === 'left') tabOrigin.current ??= e.c
+    if (move === 'down') { r++; if (tabOrigin.current !== null) c = tabOrigin.current; tabOrigin.current = null }
+    else if (move === 'up') r--
+    else if (move === 'right') c++
+    else c--
     moveTo(r, c)
   }
 
@@ -556,6 +573,59 @@ export default function SpreadsheetEditorPage() {
     void g
   }
 
+  // ── charts / pivot ─────────────────────────────────────────────────────────
+  const addChart = (kind: ChartKind) => {
+    if (!sheet) return
+    const g = regionOf()
+    if (g.c2 === g.c1 && g.r2 === g.r1) { setNotice(x('chartNeedData')); return }
+    const def: ChartDef = { id: uid(), kind, range: g, title: x('chartTitle'), x: colSizes.slice(0, g.c2 + 1).reduce((a, b) => a + b, 0) + 24, y: Math.max(8, rowSizes.slice(0, g.r1).reduce((a, b) => a + b, 0)), w: 420, h: 280 }
+    edit((s) => ({ ...s, charts: [...(s.charts ?? []), def] }))
+    setChartSel(def.id)
+  }
+  const patchChart = (id: string, p: Partial<ChartDef>) => {
+    const d = docRef.current
+    if (!d) return
+    setDoc({ ...d, wb: updateSheet(d.wb, si, (s) => ({ ...s, charts: (s.charts ?? []).map((c) => (c.id === id ? { ...c, ...p } : c)) })) })
+  }
+  const createPivot = (o: { row: number; col: number | null; val: number; agg: 'SUM' | 'COUNT' | 'AVERAGE' }) => {
+    if (!sheet) return
+    const g = regionOf()
+    const hdr = looksLikeHeader(g, valueOf) ? g.r1 + 1 : g.r1
+    const colRange = (c: number) => `${sheetRef(sheet.name)}!$${colName(c)}$${hdr + 1}:$${colName(c)}$${g.r2 + 1}`
+    const uniq = (c: number) => [...new Set(range(hdr, g.r2).map((r) => String(valueOf(r, c) ?? '')))].filter((v) => v !== '').sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+    const rows = uniq(o.row), cols = o.col === null ? [] : uniq(o.col)
+    const target = newSheet(x('pivotName'), Math.max(50, rows.length + 5), Math.max(10, cols.length + 4))
+    const bold = { bold: true, bg: '#e8f3ec' }
+    const put = (r: number, c: number, v: string, st?: CellStyle) => { target.cells[key(r, c)] = { v, s: st } }
+    const aggFn = (rowCell: string, colCell?: string) => {
+      const base = [`${colRange(o.row)},${rowCell}`, colCell ? `${colRange(o.col!)},${colCell}` : ''].filter(Boolean).join(',')
+      if (o.agg === 'COUNT') return `=COUNTIFS(${base})`
+      if (o.agg === 'AVERAGE') return `=AVERAGEIFS(${colRange(o.val)},${base})`
+      return `=SUMIFS(${colRange(o.val)},${base})`
+    }
+    put(0, 0, String(valueOf(g.r1, o.row) ?? ''), bold)
+    if (o.col === null) {
+      put(0, 1, `${x(`agg_${o.agg}`)} ${valueOf(g.r1, o.val) ?? ''}`, bold)
+      rows.forEach((rv, i) => { put(i + 1, 0, rv); put(i + 1, 1, aggFn(`$A${i + 2}`)) })
+      put(rows.length + 1, 0, x('total'), bold)
+      put(rows.length + 1, 1, `=SUM(B2:B${rows.length + 1})`, bold)
+    } else {
+      cols.forEach((cv, j) => put(0, j + 1, cv, bold))
+      put(0, cols.length + 1, x('total'), bold)
+      rows.forEach((rv, i) => {
+        put(i + 1, 0, rv)
+        cols.forEach((_cv, j) => put(i + 1, j + 1, aggFn(`$A${i + 2}`, `${colName(j + 1)}$1`)))
+        put(i + 1, cols.length + 1, `=SUM(B${i + 2}:${colName(cols.length)}${i + 2})`, bold)
+      })
+      put(rows.length + 1, 0, x('total'), bold)
+      for (let j = 0; j <= cols.length; j++) put(rows.length + 1, j + 1, `=SUM(${colName(j + 1)}2:${colName(j + 1)}${rows.length + 1})`, bold)
+    }
+    target.colW = { 0: 140 }
+    commit((w) => ({ ...w, sheets: [...w.sheets, target] }))
+    setSi(docRef.current!.wb.sheets.length - 1)
+    setSel(single(0, 0))
+  }
+
   // ── sheets ─────────────────────────────────────────────────────────────────
   const addSheet = () => {
     commit((w) => {
@@ -744,7 +814,7 @@ export default function SpreadsheetEditorPage() {
       {/* ribbon */}
       <div className="shrink-0 border-b border-[var(--color-border)]">
         <div className="flex h-8 items-center gap-1 px-3" role="tablist">
-          {(['home', 'formulas', 'data', 'view'] as const).map((k) => (
+          {(['home', 'insert', 'formulas', 'data', 'view'] as const).map((k) => (
             <button key={k} role="tab" aria-selected={tab === k} type="button" onClick={() => setTab(k)}
               className={cn('h-8 rounded-t-md px-3 text-xs font-medium', tab === k ? 'border-b-2 border-emerald-600 text-emerald-700' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>{x(`tab.${k}`)}</button>
           ))}
@@ -815,6 +885,20 @@ export default function SpreadsheetEditorPage() {
             </div>
           )}
           {tab === 'home' && null}
+          {tab === 'insert' && (
+            <div className="flex w-max flex-nowrap items-center gap-0.5 pt-3">
+              <Tb icon={ChartColumn} label={x('chartColumn')} onClick={() => addChart('column')}>{x('chartColumn')}</Tb>
+              <Tb icon={ChartBar} label={x('chartBar')} onClick={() => addChart('bar')}>{x('chartBar')}</Tb>
+              <Tb icon={ChartLine} label={x('chartLine')} onClick={() => addChart('line')}>{x('chartLine')}</Tb>
+              <Tb icon={ChartPie} label={x('chartPie')} onClick={() => addChart('pie')}>{x('chartPie')}</Tb>
+              <Sep />
+              <Tb icon={Table2} label={x('pivot')} onClick={() => setDialog({ kind: 'pivot' })}>{x('pivot')}</Tb>
+              <Sep />
+              <Tb icon={Rows3} label={x('insRows')} onClick={() => insertRows(false)}>{x('insRows')}</Tb>
+              <Tb icon={Columns3} label={x('insCols')} onClick={() => insertCols(false)}>{x('insCols')}</Tb>
+              <span className="ml-3 max-w-sm text-xs text-[var(--color-text-muted)]">{x('chartHint')}</span>
+            </div>
+          )}
           {tab === 'formulas' && (
             <div className="flex w-max flex-nowrap items-center gap-0.5 pt-3">
               <Menu label="AutoSum" width={200} trigger={<span className="flex items-center gap-1.5"><Sigma size={16} />{x('autosum')}</span>}>
@@ -834,6 +918,7 @@ export default function SpreadsheetEditorPage() {
               <Tb icon={ArrowUpAZ} label={x('sortDesc')} onClick={() => doSort(false)}>{x('sortDesc')}</Tb>
               <Tb icon={Filter} label={x('filter')} active={!!sheet.filter} onClick={toggleFilter}>{x('filter')}</Tb>
               <Sep />
+              <Tb icon={ListChecks} label={x('validation')} onClick={() => setDialog({ kind: 'validation' })}>{x('validation')}</Tb>
               <Tb icon={ListFilter} label={x('removeDup')} onClick={removeDuplicates}>{x('removeDup')}</Tb>
               <Menu label={x('fill')} width={200} trigger={<span className="flex items-center gap-1.5">{x('fillMenu')}</span>}>
                 {(close) => <div><MenuItem onClick={() => { close(); fillDir('down') }}>{x('fillDown')} (Ctrl+D)</MenuItem><MenuItem onClick={() => { close(); fillDir('right') }}>{x('fillRight')} (Ctrl+R)</MenuItem></div>}
@@ -893,13 +978,16 @@ export default function SpreadsheetEditorPage() {
       <Grid
         ref={grid} sheet={sheet} calc={calc} zoom={zoom} rowSizes={rowSizes} colSizes={colSizes} sel={sel} showFormulas={showFormulas} editing={editing && !(document.activeElement?.getAttribute('aria-label') === x('formulaBar')) ? editing : editing && document.activeElement?.getAttribute('aria-label') === x('formulaBar') ? null : null}
         clip={clip && clip.sheetName === sheet.name ? clip.src : null} filterRange={sheet.filter?.range ?? null} cf={cf} painterActive={!!painter}
-        onSelect={(s) => { setSel(s); if (!editing) reveal(s.focus.r, s.focus.c) }}
+        onSelect={(s) => { tabOrigin.current = null; setSel(s); if (!editing) reveal(s.focus.r, s.focus.c) }}
         onStartEdit={startEdit} onEditChange={(text) => setEditing((e) => (e ? { ...e, text } : e))} onEditKey={onEditKey}
         onEditBlur={() => { const ae = document.activeElement; if (ae?.getAttribute('aria-label') === x('formulaBar')) return; if (editingRef.current) commitEdit('none') }}
         onPoint={onPoint} onResize={setSize} onAutoFit={autoFit} onFill={doFill} onNeedMore={growSheet}
         onContext={(cx, cy) => setCtx({ x: cx, y: cy })}
         onFilterClick={(col, rect) => setDialog({ kind: 'filter', col, x: rect.left, y: rect.bottom + 4 })}
         onZoom={(d) => setZoom((z) => clamp(Math.round((z + d * 0.1) * 10) / 10, 0.5, 2.5))}
+        overlay={(sheet.charts ?? []).map((ch) => <ChartView key={ch.id} def={ch} zoom={zoom} selected={chartSel === ch.id} data={buildChartData(ch, valueOf)} onSelect={() => setChartSel(ch.id)} onChange={(p) => patchChart(ch.id, p)} onDelete={() => { edit((s) => ({ ...s, charts: (s.charts ?? []).filter((c) => c.id !== ch.id) })); setChartSel(null) }} />)}
+        validationItems={validationAt(active.r, active.c)?.type === 'list' ? validationAt(active.r, active.c)!.items ?? [] : null}
+        onPickValidation={(v) => writeCell(active.r, active.c, v)}
         onPaintApply={() => { if (painter) { edit((s) => patchStyle(s, ranges, () => ({ ...painter }))); setPainter(null) } }}
       />
 
@@ -970,6 +1058,8 @@ export default function SpreadsheetEditorPage() {
       )}
 
       {dialog?.kind === 'prompt' && <PromptDialog x={x} d={dialog} onClose={() => setDialog(null)} />}
+      {dialog?.kind === 'validation' && <ValidationDialog x={x} onClose={() => setDialog(null)} current={validationAt(active.r, active.c)} onOk={(v) => { edit((s) => ({ ...s, validations: [...(s.validations ?? []).filter((o) => !overlaps(o.range, prim)), ...(v ? [{ ...v, range: prim }] : [])] })); setDialog(null) }} />}
+      {dialog?.kind === 'pivot' && <PivotDialog x={x} onClose={() => setDialog(null)} headers={range(regionOf().c1, regionOf().c2).map((c) => ({ c, name: String(valueOf(regionOf().r1, c) ?? colName(c)) }))} onOk={(o) => { createPivot(o); setDialog(null) }} />}
       {dialog?.kind === 'cf' && <CfDialog x={x} onClose={() => setDialog(null)} onOk={(rule) => { addRule(rule); setDialog(null) }} />}
       {dialog?.kind === 'filter' && sheet.filter && (
         <FilterPopup x={x} d={dialog} sheet={sheet} calc={calc} si={si} onClose={() => setDialog(null)}
@@ -1175,6 +1265,50 @@ function FilterPopup({ x, d, sheet, calc, si, onClose, onApply, onClear, onSort 
         </div>
       )}
     </PopMenu>
+  )
+}
+
+const sheetRef = (n: string) => (/^[A-Za-z_][\w.]*$/.test(n) ? n : `'${n.replace(/'/g, "''")}'`)
+
+function ValidationDialog({ x, current, onClose, onOk }: { x: (k: string) => string; current?: { type: 'list' | 'whole' | 'decimal'; items?: string[]; min?: number; max?: number }; onClose: () => void; onOk: (v: { type: 'list' | 'whole' | 'decimal'; items?: string[]; min?: number; max?: number } | null) => void }) {
+  const [type, setType] = useState<'list' | 'whole' | 'decimal'>(current?.type ?? 'list')
+  const [items, setItems] = useState((current?.items ?? []).join(', '))
+  const [min, setMin] = useState(current?.min?.toString() ?? '')
+  const [max, setMax] = useState(current?.max?.toString() ?? '')
+  const inp = 'mb-2 h-9 w-full rounded border border-[var(--color-border)] bg-transparent px-2 text-sm outline-none'
+  return (
+    <Modal title={x('validation')} onClose={onClose}>
+      <select value={type} onChange={(e) => setType(e.target.value as typeof type)} className="mb-2 h-9 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-sm">
+        <option value="list">{x('val_list')}</option><option value="whole">{x('val_whole')}</option><option value="decimal">{x('val_decimal')}</option>
+      </select>
+      {type === 'list' ? <input value={items} onChange={(e) => setItems(e.target.value)} placeholder={x('val_items')} className={inp} /> : (
+        <div className="flex gap-2"><input value={min} onChange={(e) => setMin(e.target.value)} placeholder={x('val_min')} className={inp} /><input value={max} onChange={(e) => setMax(e.target.value)} placeholder={x('val_max')} className={inp} /></div>
+      )}
+      <div className="mt-2 flex justify-between">
+        <Button size="sm" variant="secondary" onClick={() => onOk(null)}>{x('val_clear')}</Button>
+        <div className="flex gap-2"><Button size="sm" variant="secondary" onClick={onClose}>{x('cancel')}</Button>
+          <Button size="sm" onClick={() => onOk(type === 'list' ? { type, items: items.split(/[;,]/).map((i) => i.trim()).filter(Boolean) } : { type, min: min === '' ? undefined : Number(min), max: max === '' ? undefined : Number(max) })}>OK</Button></div>
+      </div>
+    </Modal>
+  )
+}
+
+function PivotDialog({ x, headers, onClose, onOk }: { x: (k: string) => string; headers: { c: number; name: string }[]; onClose: () => void; onOk: (o: { row: number; col: number | null; val: number; agg: 'SUM' | 'COUNT' | 'AVERAGE' }) => void }) {
+  const [row, setRow] = useState(headers[0]?.c ?? 0)
+  const [col, setCol] = useState<number | null>(null)
+  const [val, setVal] = useState(headers[1]?.c ?? headers[0]?.c ?? 0)
+  const [agg, setAgg] = useState<'SUM' | 'COUNT' | 'AVERAGE'>('SUM')
+  const sel = 'mb-2 h-9 w-full rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-sm'
+  const opts = headers.map((h) => <option key={h.c} value={h.c}>{h.name}</option>)
+  return (
+    <Modal title={x('pivot')} onClose={onClose}>
+      <p className="mb-2 text-xs text-[var(--color-text-muted)]">{x('pivotHint')}</p>
+      <label className="text-xs">{x('pivotRows')}<select value={row} onChange={(e) => setRow(Number(e.target.value))} className={sel}>{opts}</select></label>
+      <label className="text-xs">{x('pivotCols')}<select value={col ?? ''} onChange={(e) => setCol(e.target.value === '' ? null : Number(e.target.value))} className={sel}><option value="">—</option>{opts}</select></label>
+      <label className="text-xs">{x('pivotValues')}<select value={val} onChange={(e) => setVal(Number(e.target.value))} className={sel}>{opts}</select></label>
+      <label className="text-xs">{x('pivotAgg')}<select value={agg} onChange={(e) => setAgg(e.target.value as typeof agg)} className={sel}><option value="SUM">{x('agg_SUM')}</option><option value="COUNT">{x('agg_COUNT')}</option><option value="AVERAGE">{x('agg_AVERAGE')}</option></select></label>
+      <div className="mt-2 flex justify-end gap-2"><Button size="sm" variant="secondary" onClick={onClose}>{x('cancel')}</Button><Button size="sm" onClick={() => onOk({ row, col, val, agg })}>OK</Button></div>
+    </Modal>
   )
 }
 

@@ -42,6 +42,9 @@ interface Props {
   onFilterClick: (col: number, rect: DOMRect) => void
   onZoom: (dir: 1 | -1) => void
   onPaintApply: () => void
+  overlay?: React.ReactNode
+  validationItems?: string[] | null
+  onPickValidation?: (v: string) => void
 }
 
 const upper = (off: number[], v: number) => {
@@ -422,6 +425,8 @@ export const Grid = memo(forwardRef<GridHandle, Props>(function Grid(p, ref) {
           {/* active cell */}
           {(() => { const a = rectOf(mergeAt(sheet, sel.anchor.r, sel.anchor.c) ?? { r1: sel.anchor.r, c1: sel.anchor.c, r2: sel.anchor.r, c2: sel.anchor.c }); return <div className="pointer-events-none absolute z-[8]" style={{ ...a, border: '2px solid #047857', boxSizing: 'border-box', background: ed ? undefined : 'transparent' }} /> })()}
           {showHandle && <div data-fill className="absolute z-[9] size-[9px] cursor-crosshair border border-white bg-emerald-700" style={{ left: primRect.left + primRect.width - 5, top: primRect.top + primRect.height - 5 }} />}
+          {p.overlay}
+          {p.validationItems && !ed && (() => { const a = rectOf(mergeAt(sheet, sel.anchor.r, sel.anchor.c) ?? { r1: sel.anchor.r, c1: sel.anchor.c, r2: sel.anchor.r, c2: sel.anchor.c }); return <ValidationDrop rect={a} items={p.validationItems} onPick={(v) => p.onPickValidation?.(v)} /> })()}
           {fillPreview && <div className="pointer-events-none absolute z-[9] border-2 border-dashed border-emerald-800" style={rectOf(fillPreview)} />}
           {ed && edRect && (
             <textarea
@@ -449,4 +454,14 @@ export const Grid = memo(forwardRef<GridHandle, Props>(function Grid(p, ref) {
 function valueAt(calc: Calc, sheet: Sheet, r: number, c: number): V {
   const si = calc.wb.sheets.indexOf(sheet)
   return calc.value(si < 0 ? 0 : si, r, c)
+}
+
+function ValidationDrop({ rect, items, onPick }: { rect: { left: number; top: number; width: number; height: number }; items: string[]; onPick: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="absolute z-[11]" style={{ left: rect.left + rect.width - 18, top: rect.top + 1 }} onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
+      <button type="button" aria-label="Validation list" onClick={() => setOpen((o) => !o)} className="flex h-[18px] w-[18px] items-center justify-center rounded-sm border border-slate-400 bg-slate-100 text-[9px] text-slate-700">▼</button>
+      {open && <div role="listbox" className="absolute right-0 top-5 max-h-48 min-w-28 overflow-auto rounded border border-slate-300 bg-white py-1 text-xs shadow-lg">{items.map((it) => <button key={it} type="button" role="option" onClick={() => { setOpen(false); onPick(it) }} className="block w-full px-3 py-1 text-left hover:bg-emerald-50">{it}</button>)}</div>}
+    </div>
+  )
 }

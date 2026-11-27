@@ -1,9 +1,12 @@
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
   BookOpen,
+  FilePlus2,
   FileOutput,
+  FolderOpen,
+  Sparkles,
   FileSpreadsheet,
   FileText,
   FileType2,
@@ -39,6 +42,21 @@ interface HomeSection {
 }
 
 const SECTIONS: HomeSection[] = [
+  {
+    id: 'create',
+    titleKey: 'sections.create',
+    subtitleKey: 'home.sections.createHint',
+    accentColor: 'from-fuchsia-500 to-pink-600',
+    headerBg: 'bg-fuchsia-50 dark:bg-fuchsia-950/60',
+    headerText: 'text-fuchsia-600 dark:text-fuchsia-400',
+    route: '/create',
+    tools: [
+      { nameKey: 'createPage.pdf.title', descriptionKey: 'createPage.pdf.f2', icon: FileText, iconBg: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/60 dark:text-indigo-400', route: '/create', available: true },
+      { nameKey: 'createPage.docs.title', descriptionKey: 'createPage.docs.f1', icon: FileType2, iconBg: 'bg-sky-100 text-sky-600 dark:bg-sky-900/60 dark:text-sky-400', route: '/create', available: true },
+      { nameKey: 'createPage.excel.title', descriptionKey: 'createPage.excel.f1', icon: FileSpreadsheet, iconBg: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/60 dark:text-emerald-400', route: '/create', available: true },
+      { nameKey: 'createPage.ppt.title', descriptionKey: 'createPage.ppt.f1', icon: Presentation, iconBg: 'bg-orange-100 text-orange-600 dark:bg-orange-900/60 dark:text-orange-400', route: '/create', available: true },
+    ],
+  },
   {
     id: 'edit',
     titleKey: 'sections.edit',
@@ -164,7 +182,7 @@ function SectionCard({ section }: { section: HomeSection }) {
   const { t } = useTranslation()
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+    <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
       {/* Section header */}
       <div className={cn('px-5 py-4', section.headerBg)}>
         <div className="flex items-center justify-between gap-3">
@@ -235,24 +253,47 @@ function SectionCard({ section }: { section: HomeSection }) {
   )
 }
 
+const QUICK = [
+  { key: 'pdf', icon: FileText, route: '/pdf/edit', color: 'from-indigo-500 to-violet-600', label: 'PDF' },
+  { key: 'docs', icon: FileType2, route: '/documents/edit', color: 'from-sky-500 to-blue-600', label: 'Document' },
+  { key: 'excel', icon: FileSpreadsheet, route: '/spreadsheets/edit', color: 'from-emerald-500 to-teal-600', label: 'Tableur' },
+  { key: 'ppt', icon: Presentation, route: '/presentations/edit', color: 'from-orange-500 to-rose-500', label: 'Présentation' },
+] as const
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 pb-24 sm:px-6">
+    <div className="mx-auto w-full max-w-6xl px-4 pb-24 sm:px-6">
 
       {/* ── Hero ── */}
-      <section className="pt-20 pb-12 sm:pt-28">
-        <div className="max-w-2xl">
-          <h1 className="text-4xl font-semibold tracking-tight text-[var(--color-text-primary)] sm:text-5xl">
+      <section className="relative pt-16 pb-10 sm:pt-24">
+        <div className="pointer-events-none absolute inset-x-0 -top-10 -z-10 h-72 bg-[radial-gradient(ellipse_at_top,var(--color-accent-light),transparent_65%)] opacity-80" />
+        <div className="max-w-3xl">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1 text-xs font-medium text-[var(--color-text-secondary)] shadow-sm">
+            <Sparkles className="size-3.5 text-[var(--color-accent)]" aria-hidden />
+            {t('home.badge')}
+          </span>
+          <h1 className="mt-5 text-4xl font-semibold tracking-tight text-[var(--color-text-primary)] sm:text-5xl">
             {t('home.title')}
           </h1>
           <p className="mt-5 max-w-xl text-lg leading-relaxed text-[var(--color-text-secondary)]">
             {t('home.subtitle')}
           </p>
-          <div className="mt-7 flex flex-wrap gap-2">
+          <div className="mt-7 flex flex-wrap items-center gap-3">
+            <Link to="/create" className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-accent)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90">
+              <FilePlus2 className="size-4" aria-hidden />
+              {t('home.newDocument')}
+            </Link>
+            <Link to="/edit" className="inline-flex items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-2.5 text-sm font-semibold text-[var(--color-text-primary)] transition hover:bg-[var(--color-surface-raised)]">
+              <FolderOpen className="size-4" aria-hidden />
+              {t('home.openFile')}
+            </Link>
+          </div>
+          <div className="mt-6 flex flex-wrap gap-2">
             <HeroBadge icon={WifiOff} label={t('home.heroFeature1')} />
             <HeroBadge icon={Lock}    label={t('home.heroFeature2')} />
             <HeroBadge icon={Zap}     label={t('home.heroFeature3')} />
@@ -260,9 +301,29 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── Quick start ── */}
+      <section className="pb-10">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">{t('home.quickStart')}</h2>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {QUICK.map((q) => {
+            const Icon = q.icon
+            return (
+              <button key={q.key} type="button" onClick={() => navigate(q.route, { state: { newBlank: true } })}
+                className="group flex flex-col items-start gap-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--color-accent)] hover:shadow-md">
+                <span className={cn('flex size-11 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm', q.color)}><Icon className="size-5" aria-hidden /></span>
+                <span>
+                  <span className="block text-sm font-semibold text-[var(--color-text-primary)]">{t(`home.quick.${q.key}`)}</span>
+                  <span className="mt-0.5 block text-xs text-[var(--color-text-secondary)]">{t('home.quickBlank')}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
       {/* ── Sections grid ── */}
       <section>
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid gap-5 md:grid-cols-2">
           {SECTIONS.map((section) => (
             <SectionCard key={section.id} section={section} />
           ))}

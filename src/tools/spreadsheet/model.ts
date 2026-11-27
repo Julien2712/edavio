@@ -55,6 +55,27 @@ export interface CondRule {
   bold?: boolean
 }
 
+export interface Validation {
+  range: Range
+  type: 'list' | 'whole' | 'decimal'
+  items?: string[]
+  min?: number
+  max?: number
+}
+
+export type ChartKind = 'bar' | 'column' | 'line' | 'pie'
+export interface ChartDef {
+  id: string
+  kind: ChartKind
+  range: Range
+  title: string
+  /** position and size in unzoomed px inside the sheet */
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
 export interface Sheet {
   id: string
   name: string
@@ -74,6 +95,8 @@ export interface Sheet {
   filter?: { range: Range; allowed: Record<number, string[]> }
   showGrid: boolean
   tabColor?: string
+  validations?: Validation[]
+  charts?: ChartDef[]
 }
 
 export interface Workbook {

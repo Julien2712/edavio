@@ -105,6 +105,10 @@ export async function importXlsx(buffer: ArrayBuffer, title: string): Promise<Wo
         const c: Cell = { v: raw }
         if (Object.keys(style).length) c.s = style
         sh.cells[key(rn - 1, cn - 1)] = c
+        const dv = cell.dataValidation as { type?: string; formulae?: string[]; operator?: string } | undefined
+        if (dv?.type === 'list' && dv.formulae?.[0]?.startsWith('"')) {
+          sh.validations = [...(sh.validations ?? []), { range: { r1: rn - 1, c1: cn - 1, r2: rn - 1, c2: cn - 1 }, type: 'list', items: dv.formulae[0].replace(/^"|"$/g, '').split(',') }]
+        }
       })
     })
     ws.columns?.forEach((col, i) => {
@@ -176,6 +180,13 @@ export async function exportXlsx(wb: Workbook): Promise<Blob> {
     sh.hiddenCols.forEach((c) => (ws.getColumn(c + 1).hidden = true))
     for (const [k, v] of Object.entries(sh.rowH)) ws.getRow(Number(k) + 1).height = (v * 72) / 96
     sh.hiddenRows.forEach((r) => (ws.getRow(r + 1).hidden = true))
+    for (const v of sh.validations ?? []) {
+      for (let r = v.range.r1; r <= v.range.r2; r++) for (let c = v.range.c1; c <= v.range.c2; c++) {
+        ws.getCell(r + 1, c + 1).dataValidation = v.type === 'list'
+          ? { type: 'list', allowBlank: true, formulae: [`"${(v.items ?? []).join(',')}"`] }
+          : { type: v.type, operator: 'between', allowBlank: true, formulae: [v.min ?? -1e15, v.max ?? 1e15] } as ExcelJS.DataValidation
+      }
+    }
     for (const [k, cell] of Object.entries(sh.cells)) {
       const [r, c] = k.split(',').map(Number) as [number, number]
       const x = ws.getCell(r + 1, c + 1)

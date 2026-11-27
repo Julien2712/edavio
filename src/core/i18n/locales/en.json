@@ -29,7 +29,8 @@
       "editHint": "Edit PDFs, documents, spreadsheets and presentations",
       "readHint": "Open and browse your documents comfortably",
       "compressHint": "Reduce file size without visible quality loss",
-      "convertHint": "Convert your images and documents between formats"
+      "convertHint": "Convert your images and documents between formats",
+      "createHint": "Start from scratch: PDF, document, spreadsheet or presentation"
     },
     "privacyNote": "Your files stay on your device. No uploads, no account required.",
     "heroFeature1": "No internet needed",
@@ -54,6 +55,16 @@
       "feat1": "PowerPoint format (.pptx)",
       "feat2": "Slides & transitions",
       "feat3": "PDF export"
+    },
+    "badge": "100% local office suite",
+    "newDocument": "New document",
+    "quickStart": "Quick start",
+    "quickBlank": "Blank file",
+    "quick": {
+      "pdf": "PDF",
+      "docs": "Document",
+      "excel": "Spreadsheet",
+      "ppt": "Presentation"
     }
   },
   "tools": {
@@ -735,7 +746,37 @@
       "home": "Home",
       "formulas": "Formulas",
       "data": "Data",
-      "view": "View"
-    }
+      "view": "View",
+      "insert": "Insert"
+    },
+    "invalidValue": "Value rejected by data validation.",
+    "chartNeedData": "Select at least two columns of data.",
+    "chartTitle": "Chart",
+    "pivotName": "Pivot table",
+    "total": "Total",
+    "chartColumn": "Column chart",
+    "chartBar": "Bar chart",
+    "chartLine": "Line chart",
+    "chartPie": "Pie chart",
+    "pivot": "PivotTable",
+    "insRows": "Insert rows",
+    "insCols": "Insert columns",
+    "chartHint": "Select data (1st column = labels) then pick a chart.",
+    "validation": "Data validation",
+    "val_list": "Drop-down list",
+    "val_whole": "Whole number",
+    "val_decimal": "Decimal number",
+    "val_items": "Comma-separated values",
+    "val_min": "Minimum",
+    "val_max": "Maximum",
+    "val_clear": "Remove",
+    "pivotHint": "Creates a sheet with formulas (SUMIFS…) based on the selected range.",
+    "pivotRows": "Rows",
+    "pivotCols": "Columns (optional)",
+    "pivotValues": "Values",
+    "pivotAgg": "Calculation",
+    "agg_SUM": "Sum",
+    "agg_COUNT": "Count",
+    "agg_AVERAGE": "Average"
   }
 }
