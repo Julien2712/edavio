@@ -212,7 +212,9 @@ export const Grid = memo(forwardRef<GridHandle, Props>(function Grid(p, ref) {
       const dr = h.r > src.r2 ? h.r - src.r2 : h.r < src.r1 ? h.r - src.r1 : 0
       const dc = h.c > src.c2 ? h.c - src.c2 : h.c < src.c1 ? h.c - src.c1 : 0
       if (!dr && !dc) { setFillPreview(null); return }
-      const dst: Range = Math.abs(dr) >= Math.abs(dc)
+      const dst: Range = dr && dc && Math.min(Math.abs(dr), Math.abs(dc)) > 0 && (Math.abs(dr) > 0 && Math.abs(dc) > 0)
+        ? { r1: Math.min(src.r1, h.r), r2: Math.max(src.r2, h.r), c1: Math.min(src.c1, h.c), c2: Math.max(src.c2, h.c) }
+        : Math.abs(dr) >= Math.abs(dc)
         ? { r1: dr < 0 ? h.r : src.r1, r2: dr > 0 ? h.r : src.r2, c1: src.c1, c2: src.c2 }
         : { c1: dc < 0 ? h.c : src.c1, c2: dc > 0 ? h.c : src.c2, r1: src.r1, r2: src.r2 }
       setFillPreview(dst)

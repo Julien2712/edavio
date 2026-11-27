@@ -461,7 +461,12 @@ export default function SpreadsheetEditorPage() {
 
   // ── fill / sort / filter / find ────────────────────────────────────────────
   const doFill = (src: Range, dst: Range) => {
-    edit((s) => fillSeries(s, src, dst))
+    const both = dst.r1 !== src.r1 || dst.r2 !== src.r2 ? dst.c1 !== src.c1 || dst.c2 !== src.c2 : false
+    if (both) {
+      // diagonal: extend sideways first, then down/up over the widened block
+      const side: Range = { r1: src.r1, r2: src.r2, c1: dst.c1, c2: dst.c2 }
+      edit((s) => fillSeries(fillSeries(s, src, side), side, dst))
+    } else edit((s) => fillSeries(s, src, dst))
     setSel({ anchor: { r: Math.min(src.r1, dst.r1), c: Math.min(src.c1, dst.c1) }, focus: { r: Math.max(src.r2, dst.r2), c: Math.max(src.c2, dst.c2) }, extra: [] })
   }
   const fillDir = (dir: 'down' | 'right') => {
@@ -978,7 +983,7 @@ export default function SpreadsheetEditorPage() {
       <Grid
         ref={grid} sheet={sheet} calc={calc} zoom={zoom} rowSizes={rowSizes} colSizes={colSizes} sel={sel} showFormulas={showFormulas} editing={editing && !(document.activeElement?.getAttribute('aria-label') === x('formulaBar')) ? editing : editing && document.activeElement?.getAttribute('aria-label') === x('formulaBar') ? null : null}
         clip={clip && clip.sheetName === sheet.name ? clip.src : null} filterRange={sheet.filter?.range ?? null} cf={cf} painterActive={!!painter}
-        onSelect={(s) => { tabOrigin.current = null; setSel(s); if (!editing) reveal(s.focus.r, s.focus.c) }}
+        onSelect={(s) => { tabOrigin.current = null; setSel(s); const wholeLine = (s.anchor.r === 0 && s.focus.r >= sheet.rows - 1) || (s.anchor.c === 0 && s.focus.c >= sheet.cols - 1); if (!editing && !wholeLine) reveal(s.focus.r, s.focus.c) }}
         onStartEdit={startEdit} onEditChange={(text) => setEditing((e) => (e ? { ...e, text } : e))} onEditKey={onEditKey}
         onEditBlur={() => { const ae = document.activeElement; if (ae?.getAttribute('aria-label') === x('formulaBar')) return; if (editingRef.current) commitEdit('none') }}
         onPoint={onPoint} onResize={setSize} onAutoFit={autoFit} onFill={doFill} onNeedMore={growSheet}
