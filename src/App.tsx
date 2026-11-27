@@ -5,11 +5,13 @@ import EditPage from '@/pages/EditPage'
 import HomePage from '@/pages/HomePage'
 import NotFoundPage from '@/pages/NotFoundPage'
 import { ToolRegistry } from '@/tools'
+import { EditorEntry } from '@/workspace/WorkspaceHost'
 
 // Routes for tools are generated from the registry.
 const toolRoutes = ToolRegistry.list()
   .filter((tool) => tool.component)
   .map((tool) => {
+    if (tool.section === 'edit') return { path: tool.route, element: <EditorEntry route={tool.route} /> }
     const Component = tool.component!
     return { path: tool.route, element: <Component /> }
   })

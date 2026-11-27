@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from '@/workspace/tabRouter'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import {
   AlignCenter,
@@ -33,6 +33,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { useTabBridge } from '@/workspace/useTabBridge'
+import { isProjectFile, type ProjectFile } from '@/workspace/project'
 import {
   ACCEPTED_DOCUMENT_EXTENSIONS,
   exportDocumentAsDocx,
@@ -216,6 +218,15 @@ export default function DocumentEditorPage() {
   const insertImageInputRef = useRef<HTMLInputElement>(null)
   const pendingHtmlRef = useRef<string | null>(null)
 
+  const { saveProject, openProjectFile } = useTabBridge({
+    hasContent: isOpen,
+    title: docTitle,
+    getProject: (): ProjectFile => ({
+      app: 'edavio', version: 1, kind: 'document', title: docTitle, savedAt: new Date().toISOString(),
+      data: { title: docTitle, format: sourceFormat, html: editorRef.current?.innerHTML ?? '' },
+    }),
+  })
+
   const updateStatsAndFormats = useCallback(() => {
     const el = editorRef.current
     if (!el) return
@@ -249,6 +260,10 @@ export default function DocumentEditorPage() {
 
   const loadFile = useCallback(
     async (file: File) => {
+      if (isProjectFile(file)) {
+        try { await openProjectFile(file) } catch { setError(t('workspace.projectError')) }
+        return
+      }
       setLoading(true)
       setError(null)
       try {
@@ -269,7 +284,7 @@ export default function DocumentEditorPage() {
         setLoading(false)
       }
     },
-    [t, updateStatsAndFormats],
+    [t, updateStatsAndFormats, openProjectFile],
   )
 
   const createBlankDocument = useCallback(() => {
@@ -288,8 +303,22 @@ export default function DocumentEditorPage() {
 
   // Load file or blank document passed from EditPage via router state
   useEffect(() => {
-    const state = location.state as { file?: File; newBlank?: boolean } | null
-    if (state?.file) {
+    const state = location.state as { file?: File; newBlank?: boolean; project?: ProjectFile } | null
+    if (state?.project) {
+      const d = state.project.data as { title: string; format: DocFormat; html: string }
+      navigate(location.pathname, { replace: true, state: null })
+      queueMicrotask(() => {
+        pendingHtmlRef.current = d.html
+        setDocTitle(d.title)
+        setSourceFormat(d.format)
+        setIsOpen(true)
+        if (editorRef.current) {
+          editorRef.current.innerHTML = d.html
+          pendingHtmlRef.current = null
+          updateStatsAndFormats()
+        }
+      })
+    } else if (state?.file) {
       const f = state.file
       navigate(location.pathname, { replace: true, state: null })
       queueMicrotask(() => {
@@ -445,6 +474,10 @@ export default function DocumentEditorPage() {
             title={t('tools.documentEditor.printPdf')}
           >
             <Printer className="size-4" />
+          </Button>
+
+          <Button variant="secondary" size="sm" title={t('workspace.saveProjectHint')} onClick={() => void saveProject()}>
+            {t('workspace.saveProject')}
           </Button>
 
           <DropdownMenu.Root>

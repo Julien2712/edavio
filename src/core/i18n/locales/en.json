@@ -532,5 +532,19 @@
       "plus": "Cross",
       "line": "Line"
     }
+  },
+  "workspace": {
+    "tabs": "Open tabs",
+    "untitled": "Untitled",
+    "closeTab": "Close tab",
+    "closeTitle": "Are you sure you want to leave?",
+    "closeBody": "“{{name}}” is open. Changes that were not exported will be lost. You can first save the project (.edavio) to resume exactly where you left off.",
+    "no": "No, stay",
+    "yes": "Yes, leave",
+    "saveAndClose": "Save project and leave",
+    "saveProject": ".edavio project",
+    "saveProjectHint": "Saves the work in progress (editable later), not the final file",
+    "openProject": "Open an .edavio project",
+    "projectError": "Invalid or corrupted project."
   }
 }

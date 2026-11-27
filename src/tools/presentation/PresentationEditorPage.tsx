@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from '@/workspace/tabRouter'
 import {
   AlignCenter, AlignHorizontalDistributeCenter, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignHorizontalJustifyStart,
   AlignJustify, AlignLeft, AlignRight, AlignVerticalDistributeCenter, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignVerticalJustifyStart, ArrowDown, ArrowRight, ArrowUp, Bold, BringToFront, ChevronDown, ChevronUp, Copy, Download, Eraser, FilePlus2,
   FlipHorizontal2, FlipVertical2, Highlighter, ImagePlus, IndentDecrease, IndentIncrease, Italic, Layers, LayoutTemplate, List, ListOrdered,
-  Maximize, Minus, PaintBucket, Palette, PenLine, Play, Plus, Presentation, Redo2, RotateCw, SendToBack, Contrast, Shapes, Slash, Strikethrough,
+  Maximize, Minus, PaintBucket, Palette, PenLine, Play, Plus, Presentation, Redo2, RotateCw, Save, SendToBack, Contrast, Shapes, Slash, Strikethrough,
   Table2, Trash2, Type, Underline, Undo2, Upload, X, ZoomIn, ZoomOut, type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -21,6 +21,8 @@ import { domToParas, exec, execFontSize, formatAtSelection, formatOfEl, mapRuns,
 import { importPptx } from './pptxImport'
 import { exportPptx } from './pptxExport'
 import { DEFAULT_FONT } from './model'
+import { useTabBridge } from '@/workspace/useTabBridge'
+import { isProjectFile, type ProjectFile } from '@/workspace/project'
 
 // ── state ─────────────────────────────────────────────────────────────────────
 
@@ -102,6 +104,15 @@ export default function PresentationEditorPage() {
   const bgInput = useRef<HTMLInputElement>(null)
 
   const slide = doc?.slides[slideIdx]
+
+  const { saveProject, openProjectFile } = useTabBridge({
+    hasContent: doc !== null,
+    title: doc?.title,
+    getProject: (): ProjectFile => {
+      const d = docRef.current!
+      return { app: 'edavio', version: 1, kind: 'presentation', title: d.title, savedAt: new Date().toISOString(), data: { title: d.title, w: d.w, h: d.h, slides: d.slides } }
+    },
+  })
   const selEls = useMemo(() => (slide ? slide.elements.filter((e) => sel.includes(e.id)) : []), [slide, sel])
 
   // ── history ─────────────────────────────────────────────────────────────────
@@ -169,6 +180,10 @@ export default function PresentationEditorPage() {
   }, [s, setDoc])
 
   const openFile = useCallback(async (file: File) => {
+    if (isProjectFile(file)) {
+      try { await openProjectFile(file) } catch { setError(s('loadError')) }
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -184,11 +199,15 @@ export default function PresentationEditorPage() {
     } finally {
       setBusy(false)
     }
-  }, [s, setDoc])
+  }, [s, setDoc, openProjectFile])
 
   useEffect(() => {
-    const st = location.state as { file?: File; newBlank?: boolean } | null
-    if (st?.file) {
+    const st = location.state as { file?: File; newBlank?: boolean; project?: ProjectFile } | null
+    if (st?.project) {
+      const d = st.project.data as { title: string; w: number; h: number; slides: Slide[] }
+      navigate(location.pathname, { replace: true, state: null })
+      queueMicrotask(() => { setDoc({ title: d.title, w: d.w, h: d.h, slides: d.slides, past: [], future: [] }); setSlideIdx(0); setSel([]) })
+    } else if (st?.file) {
       const f = st.file
       navigate(location.pathname, { replace: true, state: null })
       queueMicrotask(() => void openFile(f))
@@ -863,7 +882,7 @@ export default function PresentationEditorPage() {
           {s('newBlank')}
         </Button>
         {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
-        <input ref={fileInput} type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" className="sr-only" tabIndex={-1}
+        <input ref={fileInput} type="file" accept=".pptx,.edavio,application/vnd.openxmlformats-officedocument.presentationml.presentation" className="sr-only" tabIndex={-1}
           onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void openFile(f) }} />
       </div>
     )
@@ -936,9 +955,10 @@ export default function PresentationEditorPage() {
         {notice && <span role="status" className="truncate text-xs text-[var(--color-text-secondary)]">{notice}</span>}
         {error && <span role="alert" className="truncate text-xs text-red-500">{error}</span>}
         <Button variant="secondary" size="sm" onClick={() => fileInput.current?.click()} className="gap-1.5"><Upload className="size-4" />{s('open')}</Button>
+        <Button variant="secondary" size="sm" title={t('workspace.saveProjectHint')} onClick={() => { stopEditing(); void saveProject() }} className="gap-1.5"><Save className="size-4" />{t('workspace.saveProject')}</Button>
         <Button variant="secondary" size="sm" onClick={() => { stopEditing(); setPresenting(slideIdx) }} className="gap-1.5"><Play className="size-4" />{s('present')}</Button>
         <Button size="sm" onClick={() => void doExport()} disabled={busy} className="gap-1.5"><Download className="size-4" />{busy ? s('exporting') : s('export')}</Button>
-        <input ref={fileInput} type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" className="sr-only" tabIndex={-1}
+        <input ref={fileInput} type="file" accept=".pptx,.edavio,application/vnd.openxmlformats-officedocument.presentationml.presentation" className="sr-only" tabIndex={-1}
           onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void openFile(f) }} />
         <input ref={imgInput} type="file" accept="image/*" className="sr-only" tabIndex={-1}
           onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void insertImage(f) }} />

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from '@/workspace/tabRouter'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import * as XLSX from 'xlsx'
 import {

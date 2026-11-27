@@ -1,6 +1,8 @@
 import { Suspense } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { Header } from './Header'
+import { WorkspaceProvider } from '@/workspace/WorkspaceContext'
+import { TabBar, WorkspaceHost, isEditorRoute } from '@/workspace/WorkspaceHost'
 
 function PageLoader() {
   return (
@@ -14,14 +16,20 @@ function PageLoader() {
 }
 
 export function AppShell() {
+  const { pathname } = useLocation()
+  const editor = isEditorRoute(pathname)
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-[var(--color-surface)]">
-      <Header />
-      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <Suspense fallback={<PageLoader />}>
-          <Outlet />
-        </Suspense>
-      </main>
-    </div>
+    <WorkspaceProvider>
+      <div className="flex h-dvh flex-col overflow-hidden bg-[var(--color-surface)]">
+        <Header />
+        <TabBar />
+        <main className={editor ? 'hidden' : 'flex min-h-0 flex-1 flex-col overflow-y-auto'}>
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
+        </main>
+        <WorkspaceHost visible={editor} />
+      </div>
+    </WorkspaceProvider>
   )
 }

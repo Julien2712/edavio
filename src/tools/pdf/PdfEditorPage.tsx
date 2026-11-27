@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from '@/workspace/tabRouter'
 import { PDFDocument } from 'pdf-lib'
 import { TextLayer } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
@@ -44,6 +44,8 @@ import { ShapeIcon } from './ShapeIcon'
 import type { PolygonKind } from './shapeGeometry'
 import { baselineFromTop, fitLetterSpacing, lineHeightFactor, measureTextWidth } from './fontInfo'
 import { extractPageShapes } from './pdfShapes'
+import { useTabBridge } from '@/workspace/useTabBridge'
+import { base64ToBytes, bytesToBase64, isProjectFile, type ProjectFile } from '@/workspace/project'
 import { applySuppressions, type Suppression } from './pdfSuppress'
 import type { TextSuppression } from './pdfTextRemover'
 import { SignatureModal } from './SignatureModal'
@@ -194,7 +196,7 @@ function DropZone({ onFile, onNewBlank }: { onFile: (file: File) => void; onNewB
       <input
         ref={inputRef}
         type="file"
-        accept="application/pdf,.pdf"
+        accept="application/pdf,.pdf,.edavio"
         className="sr-only"
         onChange={handleChange}
         tabIndex={-1}
@@ -379,6 +381,7 @@ export default function PdfEditorPage() {
   const annotationsRef = useRef<Annotation[]>(annotations)
   const suppressionsRef = useRef<Suppression[]>(suppressions)
   const pdfRef = useRef<PdfState | null>(pdf)
+  const openProjectFileRef = useRef<((f: File) => Promise<void>) | null>(null)
   const syncSeqRef = useRef(0)
   const pristinePdfTextRef = useRef<TextAnnotation | null>(null)
 
@@ -744,6 +747,14 @@ export default function PdfEditorPage() {
   // ── Load file ──────────────────────────────────────────────────────────────
   const loadFile = useCallback(
     async (file: File) => {
+      if (isProjectFile(file)) {
+        try {
+          await openProjectFileRef.current?.(file)
+        } catch {
+          setError(t('workspace.projectError'))
+        }
+        return
+      }
       setLoading(true)
       setError(null)
       setPageProxy(null)
@@ -807,10 +818,56 @@ export default function PdfEditorPage() {
     await loadFile(file)
   }, [loadFile, t])
 
+  const restoreProject = useCallback(async (p: ProjectFile) => {
+    const d = p.data as { name: string; original: string; annotations: Annotation[]; suppressions: Suppression[]; pages: PageEntry[]; currentIndex: number }
+    setLoading(true)
+    try {
+      const pdfjs = await loadPdfJs()
+      const raw = base64ToBytes(d.original)
+      const doc = await pdfjs.getDocument({ data: raw.slice(), fontExtraProperties: true }).promise
+      setPdf({ doc, originalBytes: raw, workingBytes: raw, name: d.name })
+      setPages(d.pages)
+      pagesRef.current = d.pages
+      setAnnotations(d.annotations)
+      annotationsRef.current = d.annotations
+      setSuppressions(d.suppressions)
+      suppressionsRef.current = d.suppressions
+      pdfRef.current = { doc, originalBytes: raw, workingBytes: raw, name: d.name }
+      setHistory([{ annotations: d.annotations, suppressions: d.suppressions, pages: d.pages }])
+      setHistoryIdx(0)
+      setCurrentIndex(Math.min(d.currentIndex ?? 0, d.pages.length - 1))
+      setSelectedId(null)
+      if (d.suppressions.length) void syncWorkingPdf(d.suppressions)
+    } catch {
+      setError(t('workspace.projectError'))
+    } finally {
+      setLoading(false)
+    }
+  }, [syncWorkingPdf, t])
+
+  const { saveProject, openProjectFile } = useTabBridge({
+    hasContent: pdf !== null,
+    title: pdf?.name.replace(/\.pdf$/i, ''),
+    getProject: (): ProjectFile => {
+      const cur = pdfRef.current!
+      return {
+        app: 'edavio', version: 1, kind: 'pdf', title: cur.name.replace(/\.pdf$/i, ''), savedAt: new Date().toISOString(),
+        data: { name: cur.name, original: bytesToBase64(cur.originalBytes), annotations: annotationsRef.current, suppressions: suppressionsRef.current, pages: pagesRef.current, currentIndex },
+      }
+    },
+  })
+  openProjectFileRef.current = openProjectFile
+
   // ── Load file passed via router state or custom event ─────────────────────
   useEffect(() => {
-    const state = location.state as { file?: File; newBlank?: boolean } | null
-    if (state?.file) {
+    const state = location.state as { file?: File; newBlank?: boolean; project?: ProjectFile } | null
+    if (state?.project) {
+      const pr = state.project
+      navigate(location.pathname, { replace: true, state: null })
+      queueMicrotask(() => {
+        void restoreProject(pr)
+      })
+    } else if (state?.file) {
       const f = state.file
       navigate(location.pathname, { replace: true, state: null })
       queueMicrotask(() => {
@@ -822,7 +879,7 @@ export default function PdfEditorPage() {
         void createBlankPdf()
       })
     }
-  }, [location.state, location.pathname, navigate, loadFile, createBlankPdf])
+  }, [location.state, location.pathname, navigate, loadFile, createBlankPdf, restoreProject])
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -1368,7 +1425,7 @@ export default function PdfEditorPage() {
         <input
           ref={openFileInputRef}
           type="file"
-          accept="application/pdf,.pdf"
+          accept="application/pdf,.pdf,.edavio"
           className="sr-only"
           onChange={(e) => {
             const f = e.target.files?.[0]
@@ -1504,6 +1561,15 @@ export default function PdfEditorPage() {
               {exportNotice}
             </span>
           )}
+          <Button
+            variant="secondary"
+            size="sm"
+            title={t('workspace.saveProjectHint')}
+            onClick={() => void saveProject()}
+            className="h-8 gap-1.5 px-3 text-xs"
+          >
+            {t('workspace.saveProject')}
+          </Button>
           <Button
             variant="primary"
             size="sm"

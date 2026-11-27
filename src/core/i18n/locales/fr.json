@@ -532,5 +532,19 @@
       "plus": "Croix",
       "line": "Ligne"
     }
+  },
+  "workspace": {
+    "tabs": "Onglets ouverts",
+    "untitled": "Sans titre",
+    "closeTab": "Fermer l'onglet",
+    "closeTitle": "Voulez-vous vraiment quitter ?",
+    "closeBody": "« {{name}} » est ouvert. Les modifications non exportées seront perdues. Vous pouvez d'abord enregistrer le projet (.edavio) pour reprendre plus tard exactement où vous en êtes.",
+    "no": "Non, rester",
+    "yes": "Oui, quitter",
+    "saveAndClose": "Enregistrer le projet et quitter",
+    "saveProject": "Projet .edavio",
+    "saveProjectHint": "Enregistre l'état en cours (modifiable plus tard), pas le fichier final",
+    "openProject": "Ouvrir un projet .edavio",
+    "projectError": "Projet invalide ou corrompu."
   }
 }

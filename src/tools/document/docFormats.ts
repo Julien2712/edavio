@@ -18,7 +18,7 @@ import {
 export type DocFormat = 'docx' | 'txt' | 'md' | 'html' | 'rtf'
 
 export const ACCEPTED_DOCUMENT_EXTENSIONS =
-  '.docx,.txt,.md,.markdown,.html,.htm,.rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/html,application/rtf'
+  '.docx,.edavio,.txt,.md,.markdown,.html,.htm,.rtf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/html,application/rtf'
 
 export function detectDocFormat(fileName: string): DocFormat {
   const lower = fileName.toLowerCase()
