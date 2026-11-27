@@ -777,6 +777,12 @@
     "pivotAgg": "Calcul",
     "agg_SUM": "Somme",
     "agg_COUNT": "Nombre",
-    "agg_AVERAGE": "Moyenne"
+    "agg_AVERAGE": "Moyenne",
+    "delRows": "Supprimer lignes",
+    "delCols": "Supprimer colonnes",
+    "sheetSize": "Taille de la feuille",
+    "rowsCount": "Nombre de lignes",
+    "colsCount": "Nombre de colonnes",
+    "sizeHint": "Le minimum correspond à la dernière cellule utilisée."
   }
 }
