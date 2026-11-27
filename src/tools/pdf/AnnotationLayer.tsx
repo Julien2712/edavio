@@ -690,6 +690,14 @@ export function AnnotationLayer({
         ny = y + (height - nextH)
         nh = nextH
       }
+      if (e.shiftKey && width > 0 && height > 0) {
+        // Shift: keep the aspect ratio, anchored on the opposite corner
+        const k = Math.max(nw / width, nh / height)
+        nw = Math.max(16, width * k)
+        nh = Math.max(16, height * k)
+        if (drag.corner.includes('w')) nx = x + width - nw
+        if (drag.corner.includes('n')) ny = y + height - nh
+      }
       onUpdateAnnotation(drag.annId, { x: nx, y: ny, width: nw, height: nh }, false)
     } else if (drag.kind === 'resize-line') {
       if (drag.end === 'start') {

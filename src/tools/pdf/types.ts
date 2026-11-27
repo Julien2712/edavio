@@ -16,7 +16,8 @@ export type EditorTool =
 
 import type { PolygonKind } from './shapeGeometry'
 
-export type FontFamily = 'Helvetica' | 'TimesRoman' | 'Courier'
+/** The 3 built-in PDF fonts, or the name of any font installed on the computer. */
+export type FontFamily = 'Helvetica' | 'TimesRoman' | 'Courier' | (string & {})
 
 export interface Point {
   x: number

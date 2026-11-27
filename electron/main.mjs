@@ -1,4 +1,4 @@
-import { app, BrowserWindow, session, shell } from 'electron'
+import { app, BrowserWindow, dialog, session, shell } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -23,6 +23,20 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: true,
     },
+  })
+
+  // Unsaved work in an editor tab: ask before closing the window.
+  win.webContents.on('will-prevent-unload', (event) => {
+    const choice = dialog.showMessageBoxSync(win, {
+      type: 'question',
+      buttons: ['Rester', 'Quitter'],
+      defaultId: 0,
+      cancelId: 0,
+      title: 'Edavio',
+      message: 'Quitter Edavio ? / Quit Edavio?',
+      detail: 'Des modifications non enregistrées seront perdues. / Unsaved changes will be lost.',
+    })
+    if (choice === 1) event.preventDefault()
   })
 
   win.once('ready-to-show', () => win.show())

@@ -542,7 +542,7 @@
     "no": "No, stay",
     "yes": "Yes, leave",
     "saveAndClose": "Save project and leave",
-    "saveProject": ".edavio project",
+    "saveProject": "Export project",
     "saveProjectHint": "Saves the work in progress (editable later), not the final file",
     "openProject": "Open an .edavio project",
     "projectError": "Invalid or corrupted project."

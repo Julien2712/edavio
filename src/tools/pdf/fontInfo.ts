@@ -1,4 +1,5 @@
 import type { FontFamily } from './types'
+import { fontStack } from '@/lib/systemFonts'
 
 export interface FontClass {
   family: FontFamily
@@ -65,10 +66,11 @@ export function fontCss(family: FontFamily): string {
   if (family === 'Courier') {
     return '"Courier New", Courier, "Liberation Mono", "Nimbus Mono PS", Cousine, monospace'
   }
+  if (family !== 'Helvetica') return fontStack(family)
   return 'Arial, Helvetica, "Liberation Sans", "Nimbus Sans", Arimo, sans-serif'
 }
 
-const FALLBACK_METRICS: Record<FontFamily, { ascent: number; descent: number }> = {
+const FALLBACK_METRICS: Record<string, { ascent: number; descent: number }> = {
   TimesRoman: { ascent: 0.891, descent: 0.216 },
   Helvetica: { ascent: 0.905, descent: 0.212 },
   Courier: { ascent: 0.833, descent: 0.3 },
@@ -91,7 +93,7 @@ const metricsCache = new Map<FontFamily, { ascent: number; descent: number }>()
 export function getFontMetrics(family: FontFamily): { ascent: number; descent: number } {
   const cached = metricsCache.get(family)
   if (cached) return cached
-  let result = FALLBACK_METRICS[family]
+  let result = FALLBACK_METRICS[family] ?? FALLBACK_METRICS.Helvetica!
   const ctx = getCtx()
   if (ctx) {
     ctx.font = `100px ${fontCss(family)}`

@@ -32,6 +32,8 @@ import {
   type PDFPage,
 } from 'pdf-lib'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
+import fontkit from '@pdf-lib/fontkit'
+import { getFontBytes } from '@/lib/systemFonts'
 import { polygonPoints } from './shapeGeometry'
 import { baselineFromTop, lineHeightFactor, textPadding } from './fontInfo'
 import type { Annotation, FontFamily, PageEntry, Point } from './types'
@@ -222,12 +224,23 @@ export async function exportAnnotatedPdf(params: {
   const srcDoc = await PDFDocument.load(rawBytes)
   const outDoc = await PDFDocument.create()
 
-  const fontCache = new Map<StandardFonts, PDFFont>()
-  const getFont = async (key: StandardFonts) => {
-    let f = fontCache.get(key)
+  outDoc.registerFontkit(fontkit)
+  const fontCache = new Map<string, PDFFont>()
+  const getFont = async (family: FontFamily, bold: boolean, italic: boolean) => {
+    const builtin = family === 'Helvetica' || family === 'TimesRoman' || family === 'Courier'
+    const id = `${family}|${bold}|${italic}`
+    let f = fontCache.get(id)
     if (!f) {
-      f = await outDoc.embedFont(key)
-      fontCache.set(key, f)
+      if (!builtin) {
+        try {
+          const bytes = await getFontBytes(family, bold, italic)
+          if (bytes) f = await outDoc.embedFont(bytes, { subset: true })
+        } catch {
+          f = undefined
+        }
+      }
+      f ??= await outDoc.embedFont(getStandardFontKey(builtin ? family : 'Helvetica', bold, italic))
+      fontCache.set(id, f)
     }
     return f
   }
@@ -424,8 +437,7 @@ export async function exportAnnotatedPdf(params: {
         }
         if (!ann.text.trim()) continue
         const pad = textPadding(ann.compact)
-        const fontKey = getStandardFontKey(ann.fontFamily, ann.bold, ann.italic)
-        const font = await getFont(fontKey)
+        const font = await getFont(ann.fontFamily, ann.bold, ann.italic)
         // Text taken from a PDF line never wraps; typed text wraps inside its box
         const lines = ann.compact
           ? ann.text.split(/\r?\n/)

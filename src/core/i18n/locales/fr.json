@@ -542,7 +542,7 @@
     "no": "Non, rester",
     "yes": "Oui, quitter",
     "saveAndClose": "Enregistrer le projet et quitter",
-    "saveProject": "Projet .edavio",
+    "saveProject": "Exporter le projet",
     "saveProjectHint": "Enregistre l'état en cours (modifiable plus tard), pas le fichier final",
     "openProject": "Ouvrir un projet .edavio",
     "projectError": "Projet invalide ou corrompu."

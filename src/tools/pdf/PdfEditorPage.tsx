@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { listFontFamilies } from '@/lib/systemFonts'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from '@/workspace/tabRouter'
 import { PDFDocument } from 'pdf-lib'
@@ -31,7 +32,6 @@ import {
   Type,
   Undo2,
   Upload,
-  X,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react'
@@ -360,6 +360,7 @@ export default function PdfEditorPage() {
   }>({ bytes: null, index: null, shapes: [] })
   const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null)
 
+  const [systemFonts, setSystemFonts] = useState<string[]>([])
   const [styleConfig, setStyleConfig] = useState<ToolStyleConfig>({
     color: '#0f172a',
     fillColor: null,
@@ -699,9 +700,10 @@ export default function PdfEditorPage() {
     [pushHistory, selectedId, editingTextId],
   )
 
+  const copiedRef = useRef<Annotation | null>(null)
   const duplicateAnnotation = useCallback(
-    (id: string) => {
-      const src = annotationsRef.current.find((a) => a.id === id)
+    (id: string, override?: Annotation) => {
+      const src = override ?? annotationsRef.current.find((a) => a.id === id)
       if (!src) return
       const offset = 16
       let copy: Annotation
@@ -1266,6 +1268,22 @@ export default function PdfEditorPage() {
         redo()
         return
       }
+      if (mod && ['c', 'x'].includes(e.key.toLowerCase()) && selectedId && !window.getSelection()?.toString()) {
+        const src = annotationsRef.current.find((a) => a.id === selectedId)
+        if (src) {
+          e.preventDefault()
+          copiedRef.current = src
+          if (e.key.toLowerCase() === 'x') deleteAnnotation(selectedId)
+          return
+        }
+      }
+      if (mod && e.key.toLowerCase() === 'v' && copiedRef.current) {
+        e.preventDefault()
+        const src = copiedRef.current
+        duplicateAnnotation(src.id, src)
+        copiedRef.current = { ...src, ...('x' in src ? { x: src.x + 16, y: src.y + 16 } : {}) } as Annotation
+        return
+      }
       if (mod && e.key.toLowerCase() === 'd' && selectedId) {
         e.preventDefault()
         duplicateAnnotation(selectedId)
@@ -1580,26 +1598,6 @@ export default function PdfEditorPage() {
             <Download className="size-3.5" />
             {exporting ? t('tools.pdfEditor.exporting') : t('tools.pdfEditor.export')}
           </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => {
-              setPdf(null)
-              setPageProxy(null)
-              setPages([])
-              setAnnotations([])
-              setSuppressions([])
-              suppressionsRef.current = []
-              setHistory([{ annotations: [], suppressions: [] }])
-              setHistoryIdx(0)
-              setError(null)
-            }}
-            aria-label={t('tools.pdfEditor.close')}
-            title={t('tools.pdfEditor.close')}
-            className="text-[var(--color-text-tertiary)] hover:text-red-500"
-          >
-            <X className="size-4" />
-          </Button>
         </div>
       </div>
 
@@ -1904,12 +1902,22 @@ export default function PdfEditorPage() {
                 setStyleConfig((s) => ({ ...s, fontFamily }))
                 if (selectedAnn?.type === 'text') updateSelected({ fontFamily, letterSpacing: 0 })
               }}
-              className="h-7 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-xs text-[var(--color-text-primary)]"
+              onFocus={() => void listFontFamilies().then(setSystemFonts)}
+              className="h-7 max-w-40 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-xs text-[var(--color-text-primary)]"
               aria-label={t('tools.pdfEditor.props.fontFamily')}
             >
               <option value="Helvetica">Sans (Helvetica)</option>
               <option value="TimesRoman">Serif (Times)</option>
               <option value="Courier">Mono (Courier)</option>
+              {(() => {
+                const cur = selectedAnn?.type === 'text' ? selectedAnn.fontFamily : styleConfig.fontFamily
+                const list = systemFonts.includes(cur) || ['Helvetica', 'TimesRoman', 'Courier'].includes(cur) ? systemFonts : [cur, ...systemFonts]
+                return list.length ? (
+                  <optgroup label={t('tools.pdfEditor.props.systemFonts', { defaultValue: 'Polices du PC' })}>
+                    {list.map((f) => <option key={f} value={f}>{f}</option>)}
+                  </optgroup>
+                ) : null
+              })()}
             </select>
 
             <select

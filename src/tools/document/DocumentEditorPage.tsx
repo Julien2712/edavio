@@ -29,7 +29,6 @@ import {
   Underline,
   Undo2,
   Upload,
-  X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -526,14 +525,6 @@ export default function DocumentEditorPage() {
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
 
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setIsOpen(false)}
-            title={t('tools.pdfEditor.close')}
-          >
-            <X className="size-4" />
-          </Button>
         </div>
       </div>
 
