@@ -108,9 +108,9 @@ export function registerYtDlp(getWindow) {
     const fmtArgs = mode === 'audio'
       ? ['-f', 'bestaudio/best', '-x', '--audio-format', 'mp3', '--audio-quality', '0']
       : ['-f', `bv*${cap}[vcodec^=avc1]+ba[ext=m4a]/bv*${cap}+ba/b${cap}/b`, '--merge-output-format', 'mp4']
-    const args = ['--newline', '--no-playlist', '--no-warnings', ...runtimeArgs(), ...(ffmpegPath ? ['--ffmpeg-location', ffmpegPath] : []),
+    const args = ['--newline', '--no-playlist', '--no-warnings', '--windows-filenames', '--no-mtime', '--file-access-retries', '30', '--retries', '10', ...runtimeArgs(), ...(ffmpegPath ? ['--ffmpeg-location', ffmpegPath] : []),
       '--progress-template', 'download:%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s',
-      ...fmtArgs, '-P', target, '-o', '%(title).150B.%(ext)s', '--print', 'after_move:filepath', '--', parsed.toString()]
+      ...fmtArgs, '-P', target, '-o', '%(title).120B.%(ext)s', '--print', 'after_move:filepath', '--', parsed.toString()]
     const send = (data) => getWindow()?.webContents.send('ytdlp:progress', { id, ...data })
     return await new Promise((resolve) => {
       const p = spawn(found.bin, args, { windowsHide: true, env: runtimeEnv() })

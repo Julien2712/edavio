@@ -71,8 +71,8 @@ export default function DownloadPage() {
         </div>
       ) : (
         <div className="mt-8 space-y-5">
-          <input value={url} onChange={(e) => { setUrl(e.target.value); setResult(null) }} placeholder="https://www.youtube.com/watch?v=…" aria-label="URL"
-            className="h-12 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 text-sm outline-none focus:border-[var(--color-accent)]" />
+          <input value={url} onChange={(e) => { setUrl(e.target.value); setResult(null) }} placeholder="https://www.youtube.com/watch?v=…" aria-label="URL" disabled={!!job}
+            className="disabled:opacity-60 h-12 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 text-sm outline-none focus:border-[var(--color-accent)]" />
           {(loadingMeta || meta) && (
             <div className="flex items-center gap-4 rounded-xl border border-[var(--color-border)] p-3">
               {loadingMeta ? <div className="flex h-20 flex-1 items-center justify-center"><Loader2 className="size-5 animate-spin text-[var(--color-accent)]" /></div> : meta && (<>
@@ -81,11 +81,11 @@ export default function DownloadPage() {
               </>)}
             </div>
           )}
-          <div className="space-y-4 rounded-xl border border-[var(--color-border)] p-5 text-sm text-[var(--color-text-secondary)]">
+          <fieldset disabled={!!job} className="space-y-4 rounded-xl border border-[var(--color-border)] p-5 text-sm text-[var(--color-text-secondary)] disabled:pointer-events-none disabled:opacity-50">
             <div className="flex items-center gap-3"><span className="w-28 shrink-0">{c('type')}</span><Seg v={mode} set={setMode} items={[['video', c('video')], ['audio', c('audio')]]} /></div>
             {mode === 'video' && <div className="flex items-center gap-3"><span className="w-28 shrink-0">{c('maxQuality')}</span><Seg v={height} set={setHeight} items={[[0, c('best')], [1080, '1080p'], [720, '720p'], [480, '480p'], [360, '360p']]} /></div>}
             <div className="flex items-center gap-3"><span className="w-28 shrink-0">{c('folder')}</span><span className="min-w-0 flex-1 truncate text-xs">{dir ?? st.downloads}</span><Button size="xs" variant="secondary" onClick={async () => { const d = await api.chooseDir(); if (d) setDir(d) }}><FolderOpen className="size-3.5" />{c('change')}</Button></div>
-          </div>
+          </fieldset>
           {job ? (
             <div className="rounded-xl border border-[var(--color-border)] p-4">
               <div className="flex items-center gap-3 text-sm"><Loader2 className="size-4 animate-spin text-[var(--color-accent)]" /><span className="flex-1 tabular-nums">{job.percent.toFixed(0)} % {job.speed && job.speed !== 'NA' ? `· ${job.speed}` : ''} {job.eta && job.eta !== 'NA' ? `· ${job.eta}` : ''}</span><Button size="xs" variant="secondary" onClick={() => void api.cancel(job.id)}><X className="size-3.5" />{c('cancel')}</Button></div>
