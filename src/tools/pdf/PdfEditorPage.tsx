@@ -12,6 +12,12 @@ import {
   Check,
   ChevronLeft,
   ChevronDown,
+  Droplets,
+  Hash,
+  PanelTop,
+  Pipette,
+  Table2,
+  Wand2,
   ChevronRight,
   Download,
   Eraser,
@@ -39,6 +45,8 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { AnnotationLayer } from './AnnotationLayer'
 import { exportAnnotatedPdf } from './exportPdf'
+import { DecorDialog, DecorPreview, STAMPS, TableDialog, makeStamp, type DecorKind } from './PdfDecor'
+import type { Decor } from './decor'
 import { PageThumbnails } from './PageThumbnails'
 import { ShapeIcon } from './ShapeIcon'
 import type { PolygonKind } from './shapeGeometry'
@@ -361,6 +369,11 @@ export default function PdfEditorPage() {
   const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null)
 
   const [systemFonts, setSystemFonts] = useState<string[]>([])
+  const [decor, setDecor] = useState<Decor>({})
+  const decorRef = useRef<Decor>({})
+  decorRef.current = decor
+  const [decorDialog, setDecorDialog] = useState<DecorKind | 'table' | null>(null)
+  const [toolsOpen, setToolsOpen] = useState(false)
   const [styleConfig, setStyleConfig] = useState<ToolStyleConfig>({
     color: '#0f172a',
     fillColor: null,
@@ -821,7 +834,7 @@ export default function PdfEditorPage() {
   }, [loadFile, t])
 
   const restoreProject = useCallback(async (p: ProjectFile) => {
-    const d = p.data as { name: string; original: string; annotations: Annotation[]; suppressions: Suppression[]; pages: PageEntry[]; currentIndex: number }
+    const d = p.data as { name: string; original: string; annotations: Annotation[]; suppressions: Suppression[]; pages: PageEntry[]; currentIndex: number; decor?: Decor }
     setLoading(true)
     try {
       const pdfjs = await loadPdfJs()
@@ -839,6 +852,7 @@ export default function PdfEditorPage() {
       setHistoryIdx(0)
       setCurrentIndex(Math.min(d.currentIndex ?? 0, d.pages.length - 1))
       setSelectedId(null)
+      setDecor(d.decor ?? {})
       if (d.suppressions.length) void syncWorkingPdf(d.suppressions)
     } catch {
       setError(t('workspace.projectError'))
@@ -854,7 +868,7 @@ export default function PdfEditorPage() {
       const cur = pdfRef.current!
       return {
         app: 'edavio', version: 1, kind: 'pdf', title: cur.name.replace(/\.pdf$/i, ''), savedAt: new Date().toISOString(),
-        data: { name: cur.name, original: bytesToBase64(cur.originalBytes), annotations: annotationsRef.current, suppressions: suppressionsRef.current, pages: pagesRef.current, currentIndex },
+        data: { name: cur.name, original: bytesToBase64(cur.originalBytes), annotations: annotationsRef.current, suppressions: suppressionsRef.current, pages: pagesRef.current, currentIndex, decor: decorRef.current },
       }
     },
   })
@@ -1177,6 +1191,42 @@ export default function PdfEditorPage() {
     [currentEntry, vpSize.width, vpSize.height, addAnnotation],
   )
 
+  const insertStamp = useCallback((id: string) => {
+    const st = STAMPS.find((x) => x.id === id)
+    if (!st) return
+    const { dataUrl, ratio } = makeStamp(st.text, st.color)
+    insertImageOnPage(dataUrl, ratio, 'image')
+  }, [insertImageOnPage])
+
+  const insertTable = useCallback((o: { rows: number; cols: number; rowH: number; color: string; width: number }) => {
+    if (!currentEntry) return
+    const w = Math.min(o.width, vpSize.width - 40)
+    const h = o.rows * o.rowH
+    const x0 = Math.max(20, (vpSize.width - w) / 2)
+    const y0 = Math.max(20, (vpSize.height - h) / 2)
+    const lines: Annotation[] = []
+    const mk = (x1: number, y1: number, x2: number, y2: number): Annotation => ({ id: uid(), pageId: currentEntry.id, type: 'line', x1, y1, x2, y2, color: o.color, strokeWidth: 1 })
+    for (let r = 0; r <= o.rows; r++) lines.push(mk(x0, y0 + r * o.rowH, x0 + w, y0 + r * o.rowH))
+    for (let c = 0; c <= o.cols; c++) lines.push(mk(x0 + (c * w) / o.cols, y0, x0 + (c * w) / o.cols, y0 + h))
+    const next = [...annotationsRef.current, ...lines]
+    annotationsRef.current = next
+    setAnnotations(next)
+    pushHistory(next)
+  }, [currentEntry, vpSize.width, vpSize.height, pushHistory])
+
+  const pickColor = useCallback(async () => {
+    const ED = (window as unknown as { EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper
+    if (!ED) { setError(t('tools.pdfEditor.decor.noEyedropper')); return }
+    try {
+      const { sRGBHex } = await new ED().open()
+      setStyleConfig((s) => ({ ...s, color: sRGBHex }))
+      const sel = annotationsRef.current.find((a) => a.id === selectedId)
+      if (sel && 'color' in sel) updateAnnotation(sel.id, { color: sRGBHex } as Partial<Annotation>, true)
+    } catch {
+      // cancelled
+    }
+  }, [t, selectedId, updateAnnotation])
+
   const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
@@ -1206,6 +1256,7 @@ export default function PdfEditorPage() {
         pdfjsDoc: pdf.doc,
         pages,
         annotations,
+        decor,
       })
       const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
@@ -1740,6 +1791,36 @@ export default function PdfEditorPage() {
           )
         })()}
 
+        <div className="relative">
+          <button type="button" onClick={() => setToolsOpen((v) => !v)} aria-haspopup="menu" aria-expanded={toolsOpen} title={t('tools.pdfEditor.decor.more')}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-sunken)] hover:text-[var(--color-text-primary)]">
+            <Wand2 className="size-4" />
+            <span className="hidden xl:inline">{t('tools.pdfEditor.decor.more')}</span>
+            <ChevronDown className="size-3 opacity-60" />
+          </button>
+          {toolsOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setToolsOpen(false)} />
+              <div role="menu" className="absolute left-0 top-full z-50 mt-1.5 w-64 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-2 shadow-[var(--shadow-lg)]">
+                {([
+                  ['eyedropper', Pipette, () => void pickColor()],
+                  ['table', Table2, () => setDecorDialog('table')],
+                  ['watermark', Droplets, () => setDecorDialog('watermark')],
+                  ['pageNumbers', Hash, () => setDecorDialog('pageNumbers')],
+                  ['headerFooter', PanelTop, () => setDecorDialog('headerFooter')],
+                ] as const).map(([id, Ic, fn]) => (
+                  <button key={id} type="button" role="menuitem" onClick={() => { setToolsOpen(false); fn() }} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] text-[var(--color-text-primary)] hover:bg-[var(--color-surface-sunken)]"><Ic className="size-4 text-[var(--color-text-secondary)]" />{t(`tools.pdfEditor.decor.${id}`)}</button>
+                ))}
+                <p className="mb-1 mt-2 px-2.5 text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)]">{t('tools.pdfEditor.decor.stamps')}</p>
+                <div className="grid grid-cols-2 gap-1">
+                  {STAMPS.map((st) => (
+                    <button key={st.id} type="button" onClick={() => { setToolsOpen(false); insertStamp(st.id) }} className="rounded-md border px-2 py-1 text-[11px] font-bold" style={{ color: st.color, borderColor: st.color }}>{st.text}</button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => imageInputRef.current?.click()}
@@ -2120,6 +2201,7 @@ export default function PdfEditorPage() {
                 interactive={tool === 'select' && editingTextId === null}
               />
 
+              <DecorPreview decor={decor} pageNo={currentIndex + 1} total={pages.length} width={Math.round(vpSize.width * scale)} height={Math.round(vpSize.height * scale)} scale={scale} />
               <AnnotationLayer
                 pageId={currentEntry.id}
                 pdfjsPage={pageProxy}
@@ -2184,6 +2266,8 @@ export default function PdfEditorPage() {
       </div>
 
       {/* Signature modal */}
+      {decorDialog === 'table' && <TableDialog onCreate={insertTable} onClose={() => setDecorDialog(null)} />}
+      {decorDialog && decorDialog !== 'table' && <DecorDialog kind={decorDialog} decor={decor} onApply={setDecor} onClose={() => setDecorDialog(null)} />}
       <SignatureModal
         open={signModalOpen}
         onClose={() => setSignModalOpen(false)}

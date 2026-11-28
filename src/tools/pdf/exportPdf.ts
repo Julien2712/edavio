@@ -37,6 +37,7 @@ import { getFontBytes } from '@/lib/systemFonts'
 import { polygonPoints } from './shapeGeometry'
 import { baselineFromTop, lineHeightFactor, textPadding } from './fontInfo'
 import type { Annotation, FontFamily, PageEntry, Point } from './types'
+import type { Decor } from './decor'
 
 /** Draws one line of text; uses raw PDF operators when extra character spacing is needed. */
 function drawTextLine(
@@ -219,8 +220,9 @@ export async function exportAnnotatedPdf(params: {
   pdfjsDoc: PDFDocumentProxy
   pages: PageEntry[]
   annotations: Annotation[]
+  decor?: Decor
 }): Promise<Uint8Array> {
-  const { rawBytes, pdfjsDoc, pages, annotations } = params
+  const { rawBytes, pdfjsDoc, pages, annotations, decor } = params
   const srcDoc = await PDFDocument.load(rawBytes)
   const outDoc = await PDFDocument.create()
 
@@ -256,8 +258,12 @@ export async function exportAnnotatedPdf(params: {
     return img
   }
 
+  let pageNo = 0
   for (const entry of pages) {
+    pageNo++
     let outPage
+    let vw = 0
+    let vh = 0
     let totalRotation: 0 | 90 | 180 | 270 = entry.userRotation
     let vpToPdf: (vx: number, vy: number) => [number, number]
 
@@ -272,12 +278,16 @@ export async function exportAnnotatedPdf(params: {
         | 270
       outPage.setRotation(degrees(totalRotation))
       const vp = pdfjsPage.getViewport({ scale: 1, rotation: totalRotation })
+      vw = vp.width
+      vh = vp.height
       vpToPdf = (vx: number, vy: number) => {
         const pt = vp.convertToPdfPoint(vx, vy)
         return [pt[0], pt[1]]
       }
     } else {
       outPage = outDoc.addPage([entry.baseWidth, entry.baseHeight])
+      vw = totalRotation % 180 === 0 ? entry.baseWidth : entry.baseHeight
+      vh = totalRotation % 180 === 0 ? entry.baseHeight : entry.baseWidth
       outPage.setRotation(degrees(totalRotation))
       vpToPdf = (vx: number, vy: number) =>
         blankVpToPdf(vx, vy, entry.baseWidth, entry.baseHeight, totalRotation)
@@ -476,6 +486,35 @@ export async function exportAnnotatedPdf(params: {
       )
       const end = outDoc.context.register(outDoc.context.stream('\nQ'))
       outPage.node.wrapContentStreams(start, end)
+    }
+
+    if (decor) {
+      const font = await getFont('Helvetica', false, false)
+      const bold = await getFont('Helvetica', true, false)
+      // Draws text whose baseline-left sits at visual (vx, vy) (y down), rotated by `ang` degrees counter-clockwise on screen.
+      const put = (text: string, f: PDFFont, size: number, cx: number, cy: number, ang: number, color: string, opacity = 1) => {
+        const w = f.widthOfTextAtSize(text, size)
+        const rad = (ang * Math.PI) / 180
+        const ux = Math.cos(rad), uy = -Math.sin(rad) // visual unit vector along the text
+        const sx = cx - ux * (w / 2) + -uy * size * 0.35
+        const sy = cy - uy * (w / 2) + ux * size * 0.35
+        const p0 = vpToPdf(sx, sy)
+        const p1 = vpToPdf(sx + ux * 100, sy + uy * 100)
+        const theta = (Math.atan2(p1[1] - p0[1], p1[0] - p0[0]) * 180) / Math.PI
+        outPage.drawText(text, { x: p0[0], y: p0[1], size, font: f, color: hexToRgb(color), rotate: degrees(theta), opacity })
+      }
+      if (decor.watermark?.text) put(decor.watermark.text, bold, decor.watermark.size, vw / 2, vh / 2, decor.watermark.angle, decor.watermark.color, decor.watermark.opacity)
+      const hs = decor.hfSize ?? 10, hc = decor.hfColor ?? '#374151'
+      if (decor.header) put(decor.header, font, hs, vw / 2, 20 + hs / 2, 0, hc)
+      if (decor.footer) put(decor.footer, font, hs, vw / 2, vh - 20 - hs / 2, 0, hc)
+      const pn = decor.pageNumbers
+      if (pn && !(pn.skipFirst && pageNo === 1)) {
+        const label = pn.format.replace('{n}', String(pageNo + pn.start - 1)).replace('{total}', String(pages.length))
+        const w = font.widthOfTextAtSize(label, pn.size)
+        const cy = pn.pos.startsWith('top') ? 24 + pn.size / 2 : vh - 24 - pn.size / 2
+        const cx = pn.pos.endsWith('center') ? vw / 2 : pn.pos.endsWith('right') ? vw - 36 - w / 2 : 36 + w / 2
+        put(label, font, pn.size, cx, cy, 0, pn.color)
+      }
     }
   }
 

@@ -1,4 +1,5 @@
 import PptxGenJS from 'pptxgenjs'
+import JSZip from 'jszip'
 import type { Deck, GeomKind, Para, ShapeEl, SlideEl } from './model'
 
 const PX = 96 // px per inch
@@ -117,5 +118,45 @@ export async function exportPptx(deck: Deck): Promise<Blob> {
     for (const el of s.elements) addElement(slide, el, pres)
   }
   const out = (await pres.write({ outputType: 'blob' })) as Blob
-  return out
+  if (!deck.slides.some((sl) => sl.transition && (sl.transition.type !== 'none' || sl.transition.after != null))) return out
+  return addTransitions(out, deck)
+}
+
+/** PowerPoint transition element for one of our transitions. */
+function transitionXml(t: NonNullable<Deck['slides'][number]['transition']>): string {
+  const spd = t.duration <= 0.5 ? 'fast' : t.duration >= 1.2 ? 'slow' : 'med'
+  const adv = t.after != null ? ` advTm="${Math.round(t.after * 1000)}"` : ''
+  const body: Record<string, string> = {
+    fade: '<p:fade/>',
+    'push-left': '<p:push dir="l"/>',
+    'push-right': '<p:push dir="r"/>',
+    'push-up': '<p:push dir="u"/>',
+    'push-down': '<p:push dir="d"/>',
+    'cover-left': '<p:cover dir="l"/>',
+    'cover-up': '<p:cover dir="u"/>',
+    'wipe-left': '<p:wipe dir="r"/>',
+    'wipe-down': '<p:wipe dir="d"/>',
+    'zoom-in': '<p:zoom dir="in"/>',
+    'zoom-out': '<p:zoom dir="out"/>',
+    flip: '<p:fade/>',
+    circle: '<p:circle/>',
+    none: '',
+  }
+  return `<p:transition spd="${spd}"${adv}>${body[t.type] ?? ''}</p:transition>`
+}
+
+/** pptxgenjs has no transition support: inject <p:transition> into each slide XML. */
+async function addTransitions(blob: Blob, deck: Deck): Promise<Blob> {
+  const zip = await JSZip.loadAsync(await blob.arrayBuffer())
+  for (let i = 0; i < deck.slides.length; i++) {
+    const t = deck.slides[i]!.transition
+    if (!t || (t.type === 'none' && t.after == null)) continue
+    const path = `ppt/slides/slide${i + 1}.xml`
+    const xml = await zip.file(path)?.async('string')
+    if (!xml || xml.includes('<p:transition')) continue
+    // schema order: cSld, clrMapOvr, transition, timing
+    const withTr = /<\/p:clrMapOvr>/.test(xml) ? xml.replace('</p:clrMapOvr>', `</p:clrMapOvr>${transitionXml(t)}`) : xml.replace('</p:sld>', `${transitionXml(t)}</p:sld>`)
+    zip.file(path, withTr)
+  }
+  return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: blob.type })
 }
