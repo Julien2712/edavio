@@ -38,11 +38,12 @@ export function PlannedTool({
       </Link>
 
       {siblings.length > 1 && (
-        <nav className="mb-6 flex flex-wrap gap-1.5" aria-label={t(`sections.${tool.section}`)}>
+        <nav className="mb-8 grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label={t(`sections.${tool.section}`)}>
           {siblings.map((x) => (
-            <Link key={x.id} to={x.route} className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors', x.id === tool.id ? 'border-[var(--color-accent)] bg-[var(--color-accent-light)] font-medium text-[var(--color-accent)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]')}>
-              <x.icon className="size-3.5" aria-hidden />
-              {t(x.nameKey)}
+            <Link key={x.id} to={x.route} aria-current={x.id === tool.id ? 'page' : undefined}
+              className={cn('flex items-center gap-2.5 rounded-xl border px-3.5 py-3 text-sm transition-all', x.id === tool.id ? 'border-[var(--color-accent)] bg-[var(--color-accent-light)] font-medium text-[var(--color-accent)] shadow-sm ring-1 ring-[var(--color-accent)]' : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-text-primary)]')}>
+              <x.icon className="size-4 shrink-0" aria-hidden />
+              <span className="truncate">{t(x.nameKey)}</span>
             </Link>
           ))}
         </nav>

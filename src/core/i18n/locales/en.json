@@ -1025,7 +1025,7 @@
     "pdfImgHint": "PDF → images, or images → PDF",
     "sheetHint": "XLSX, XLS, CSV, TSV, ODS, JSON",
     "docHint": "DOCX, PDF, HTML, Markdown, TXT, RTF",
-    "mediaHint": "Video and audio — processed locally",
+    "mediaHint": "Video or audio — audio extraction from a video is supported (MP3, WAV…)",
     "drop": "Drop your files here or click to browse",
     "convertTo": "Convert to",
     "quality": "Quality",
@@ -1052,7 +1052,9 @@
     "q_balanced": "Balanced",
     "q_small": "Small",
     "maxHeight": "Max height",
-    "bitrate": "Audio bitrate"
+    "bitrate": "Audio bitrate",
+    "groupVideo": "Video",
+    "groupAudio": "Audio (also extracts the soundtrack of a video)"
   },
   "read": {
     "drop": "Drop a file here or click to browse",

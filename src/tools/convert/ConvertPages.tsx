@@ -217,7 +217,7 @@ export function MediaConverterPage() {
   const crf = { high: 20, balanced: 26, small: 32 }[quality]
   return (
     <BatchTool toolId="media-converter" formats={['MP4', 'MKV', 'WEBM', 'MOV', 'AVI', 'MP3', 'WAV', 'OGG', 'M4A', 'FLAC']} re={/\.(mp4|mov|mkv|webm|m4v|avi|wmv|flv|mp3|wav|ogg|aac|m4a|flac|opus|wma)$/i} hint={c('mediaHint')}
-      outputs={[{ id: 'mp4', label: 'MP4' }, { id: 'webm', label: 'WebM' }, { id: 'gif', label: 'GIF' }, { id: 'mp3', label: 'MP3' }, { id: 'm4a', label: 'M4A' }, { id: 'ogg', label: 'OGG' }, { id: 'wav', label: 'WAV' }, { id: 'flac', label: 'FLAC' }]}
+      outputs={[{ id: 'mp4', label: 'MP4', group: c('groupVideo') }, { id: 'webm', label: 'WebM', group: c('groupVideo') }, { id: 'gif', label: 'GIF', group: c('groupVideo') }, ...(['mp3', 'm4a', 'ogg', 'wav', 'flac'] as const).map((id) => ({ id, label: id.toUpperCase(), group: c('groupAudio') }))]}
       outputFor={(f) => (isAudioFile(f) ? AUDIO_OUT : ['mp4', 'webm', 'gif', ...AUDIO_OUT])}
       options={(o) => (
         <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">

@@ -7,7 +7,7 @@ import { fmtSize, saveBlob, zipFiles } from '../shared/util'
 import { cn } from '@/lib/utils'
 
 export interface OutFile { name: string; blob: Blob }
-export interface Output { id: string; label: string }
+export interface Output { id: string; label: string; group?: string }
 
 interface Item { id: string; file: File; status: 'wait' | 'busy' | 'done' | 'error'; progress: number; outs?: OutFile[]; error?: string }
 
@@ -61,9 +61,16 @@ export function BatchTool({ toolId, formats, re, hint, outputs, outputFor, optio
 
       <div className="mt-6 rounded-xl border border-[var(--color-border)] p-5">
         <h2 className="mb-3 text-xs font-medium uppercase tracking-widest text-[var(--color-text-tertiary)]">{c('convertTo')}</h2>
-        <div className="flex flex-wrap gap-1.5">
-          {offered.map((o) => (
-            <button key={o.id} type="button" onClick={() => { setOut(o.id); if (!running) setItems((cur) => cur.map((i) => (i.status === 'busy' ? i : { id: i.id, file: i.file, status: 'wait', progress: 0 }))) }} className={cn('rounded-lg border px-3 py-1.5 text-sm', current === o.id ? 'border-[var(--color-accent)] bg-[var(--color-accent-light)] font-medium text-[var(--color-accent)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]')}>{o.label}</button>
+        <div className="space-y-3">
+          {[...new Set(offered.map((o) => o.group ?? ''))].map((g) => (
+            <div key={g}>
+              {g && <p className="mb-1.5 text-xs text-[var(--color-text-tertiary)]">{g}</p>}
+              <div className="flex flex-wrap gap-1.5">
+                {offered.filter((o) => (o.group ?? '') === g).map((o) => (
+                  <button key={o.id} type="button" onClick={() => { setOut(o.id); if (!running) setItems((cur) => cur.map((i) => (i.status === 'busy' ? i : { id: i.id, file: i.file, status: 'wait', progress: 0 }))) }} className={cn('rounded-lg border px-3 py-1.5 text-sm', current === o.id ? 'border-[var(--color-accent)] bg-[var(--color-accent-light)] font-medium text-[var(--color-accent)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]')}>{o.label}</button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
         {options && <div className="mt-4">{options(current)}</div>}
