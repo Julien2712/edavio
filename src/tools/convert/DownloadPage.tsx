@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 interface Bridge {
   status: () => Promise<{ available: boolean; version: string | null; downloads: string } | null>
   install: () => Promise<{ ok: boolean; version?: string; error?: string }>
+  info: (url: string) => Promise<{ title: string; uploader: string; duration: string; thumbnail: string | null } | null>
   chooseDir: () => Promise<string | null>
   download: (o: { id: string; url: string; mode: 'video' | 'audio'; height: number; dir?: string }) => Promise<{ ok: boolean; file?: string; error?: string }>
   cancel: (id: string) => Promise<void>
@@ -29,9 +30,20 @@ export default function DownloadPage() {
   const [job, setJob] = useState<{ id: string; percent: number; speed?: string; eta?: string } | null>(null)
   const [result, setResult] = useState<{ ok: boolean; file?: string; error?: string } | null>(null)
   const idRef = useRef('')
+  const [meta, setMeta] = useState<{ title: string; uploader: string; duration: string; thumbnail: string | null } | null>(null)
+  const [loadingMeta, setLoadingMeta] = useState(false)
 
   useEffect(() => { void api?.status().then(setSt) }, [api])
   useEffect(() => api?.onProgress((d) => d.id === idRef.current && setJob(d)), [api])
+
+  useEffect(() => {
+    setMeta(null)
+    const u = url.trim()
+    if (!api || !st?.available || !/^https?:\/\/\S+$/i.test(u)) return
+    let live = true
+    const t = setTimeout(() => { setLoadingMeta(true); void api.info(u).then((m) => { if (live) { setMeta(m); setLoadingMeta(false) } }) }, 600)
+    return () => { live = false; clearTimeout(t); setLoadingMeta(false) }
+  }, [url, api, st?.available])
 
   const install = async () => { setBusyInstall(true); const r = await api!.install(); setBusyInstall(false); if (r.ok) setSt(await api!.status()); else setResult({ ok: false, error: r.error }) }
   const start = async () => {
@@ -61,6 +73,14 @@ export default function DownloadPage() {
         <div className="mt-8 space-y-5">
           <input value={url} onChange={(e) => { setUrl(e.target.value); setResult(null) }} placeholder="https://www.youtube.com/watch?v=…" aria-label="URL"
             className="h-12 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 text-sm outline-none focus:border-[var(--color-accent)]" />
+          {(loadingMeta || meta) && (
+            <div className="flex items-center gap-4 rounded-xl border border-[var(--color-border)] p-3">
+              {loadingMeta ? <div className="flex h-20 flex-1 items-center justify-center"><Loader2 className="size-5 animate-spin text-[var(--color-accent)]" /></div> : meta && (<>
+                {meta.thumbnail ? <img src={meta.thumbnail} alt="" className="h-20 w-36 shrink-0 rounded-lg object-cover" /> : <div className="h-20 w-36 shrink-0 rounded-lg bg-[var(--color-surface-sunken)]" />}
+                <div className="min-w-0"><p className="line-clamp-2 text-sm font-medium text-[var(--color-text-primary)]">{meta.title}</p><p className="mt-1 truncate text-xs text-[var(--color-text-secondary)]">{meta.uploader}{meta.duration ? ` · ${meta.duration}` : ''}</p></div>
+              </>)}
+            </div>
+          )}
           <div className="space-y-4 rounded-xl border border-[var(--color-border)] p-5 text-sm text-[var(--color-text-secondary)]">
             <div className="flex items-center gap-3"><span className="w-28 shrink-0">{c('type')}</span><Seg v={mode} set={setMode} items={[['video', c('video')], ['audio', c('audio')]]} /></div>
             {mode === 'video' && <div className="flex items-center gap-3"><span className="w-28 shrink-0">{c('maxQuality')}</span><Seg v={height} set={setHeight} items={[[0, c('best')], [1080, '1080p'], [720, '720p'], [480, '480p'], [360, '360p']]} /></div>}
