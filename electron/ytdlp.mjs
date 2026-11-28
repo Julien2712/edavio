@@ -35,6 +35,16 @@ async function locate() {
   return v ? { bin: 'yt-dlp', version: v } : null
 }
 
+/** Kills yt-dlp and everything it started (on Windows yt-dlp.exe spawns child processes, so a plain kill() is not enough). */
+function killJob(id) {
+  const j = jobs.get(id)
+  if (!j) return
+  j.cancelled = true
+  if (process.platform === 'win32') spawn('taskkill', ['/pid', String(j.proc.pid), '/T', '/F'], { windowsHide: true })
+  else j.proc.kill('SIGKILL')
+  j.finish({ ok: false, error: 'cancelled' })
+}
+
 export function registerYtDlp(getWindow) {
   const trusted = (e) => e.sender === getWindow()?.webContents
 
@@ -100,7 +110,7 @@ export function registerYtDlp(getWindow) {
 
   ipcMain.handle('ytdlp:reveal', (e, file) => { if (trusted(e) && typeof file === 'string') shell.showItemInFolder(file) })
 
-  ipcMain.handle('ytdlp:cancel', (e, id) => { if (trusted(e)) jobs.get(id)?.kill() })
+  ipcMain.handle('ytdlp:cancel', (e, id) => { if (trusted(e)) killJob(id) })
 
   ipcMain.handle('ytdlp:download', async (e, opts) => {
     if (!trusted(e)) return { ok: false }
@@ -122,7 +132,9 @@ export function registerYtDlp(getWindow) {
     const send = (data) => getWindow()?.webContents.send('ytdlp:progress', { id, ...data })
     return await new Promise((resolve) => {
       const p = spawn(found.bin, args, { windowsHide: true, env: runtimeEnv() })
-      jobs.set(id, p)
+      let done = false
+      const finish = (r) => { if (done) return; done = true; jobs.delete(id); resolve(r) }
+      jobs.set(id, { proc: p, finish, cancelled: false })
       let file = '', err = ''
       p.stdout.on('data', (d) => {
         for (const line of String(d).split(/\r?\n/)) {
@@ -131,8 +143,8 @@ export function registerYtDlp(getWindow) {
         }
       })
       p.stderr.on('data', (d) => (err += d))
-      p.on('error', () => { jobs.delete(id); resolve({ ok: false, error: 'spawn' }) })
-      p.on('close', (code, sig) => { jobs.delete(id); resolve(code === 0 && file ? { ok: true, file } : { ok: false, error: sig ? 'cancelled' : err.split('\n').filter(Boolean).pop() ?? 'failed' }) })
+      p.on('error', () => finish({ ok: false, error: 'spawn' }))
+      p.on('close', (code, sig) => finish(code === 0 && file ? { ok: true, file } : { ok: false, error: sig ? 'cancelled' : err.split('\n').filter(Boolean).pop() ?? 'failed' }))
     })
   })
 }

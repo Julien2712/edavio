@@ -1121,6 +1121,7 @@
     "show": "Afficher",
     "failed": "Échec du téléchargement :",
     "update": "mettre à jour",
-    "rights": "À utiliser pour du contenu dont vous avez le droit de disposer."
+    "rights": "À utiliser pour du contenu dont vous avez le droit de disposer.",
+    "preparing": "Préparation…"
   }
 }

@@ -88,7 +88,7 @@ export default function DownloadPage() {
           </fieldset>
           {job ? (
             <div className="rounded-xl border border-[var(--color-border)] p-4">
-              <div className="flex items-center gap-3 text-sm"><Loader2 className="size-4 animate-spin text-[var(--color-accent)]" /><span className="flex-1 tabular-nums">{job.percent.toFixed(0)} % {job.speed && job.speed !== 'NA' ? `· ${job.speed}` : ''} {job.eta && job.eta !== 'NA' ? `· ${job.eta}` : ''}</span><Button size="xs" variant="secondary" onClick={() => void api.cancel(job.id)}><X className="size-3.5" />{c('cancel')}</Button></div>
+              <div className="flex items-center gap-3 text-sm"><Loader2 className="size-4 animate-spin text-[var(--color-accent)]" /><span className="flex-1 tabular-nums">{job.percent === 0 && !job.speed ? c('preparing') : `${job.percent.toFixed(0)} %`} {job.speed && job.speed !== 'NA' ? `· ${job.speed}` : ''} {job.eta && job.eta !== 'NA' ? `· ${job.eta}` : ''}</span><Button size="xs" variant="secondary" onClick={() => { void api.cancel(job.id); idRef.current = ''; setJob(null) }}><X className="size-3.5" />{c('cancel')}</Button></div>
               <div className="mt-2 h-1.5 overflow-hidden rounded bg-[var(--color-border)]"><div className="h-full bg-[var(--color-accent)] transition-all" style={{ width: `${job.percent}%` }} /></div>
             </div>
           ) : <Button className="h-11 w-full" disabled={!valid} onClick={() => void start()}><Download className="size-4" />{c('download')}</Button>}

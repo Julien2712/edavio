@@ -1120,6 +1120,7 @@
     "show": "Show",
     "failed": "Download failed:",
     "update": "update",
-    "rights": "Use only for content you have the right to download."
+    "rights": "Use only for content you have the right to download.",
+    "preparing": "Preparing…"
   }
 }
