@@ -2,12 +2,15 @@ import { app, dialog, ipcMain, net, shell } from 'electron'
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import ffmpegStatic from 'ffmpeg-static'
+import { createRequire } from 'node:module'
 
 const binDir = () => path.join(app.getPath('userData'), 'bin')
 const ownBinary = () => path.join(binDir(), process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp')
 const ASSET = process.platform === 'win32' ? 'yt-dlp.exe' : process.platform === 'darwin' ? 'yt-dlp_macos' : 'yt-dlp'
 const jobs = new Map()
+// Optional: if the package is not installed yet (npm install), the app still starts and only the merge step is unavailable.
+let ffmpegStatic = null
+try { ffmpegStatic = createRequire(import.meta.url)('ffmpeg-static') } catch { /* run `npm install` */ }
 const ffmpegPath = ffmpegStatic ? String(ffmpegStatic).replace('app.asar', 'app.asar.unpacked') : null
 
 // YouTube now needs a JavaScript runtime to solve its player challenges: Electron itself can act as Node.js.
