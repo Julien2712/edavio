@@ -16,8 +16,8 @@ export const documentReader: ToolModule = {
   route: '/read',
   features: [],
   acceptedMimeTypes: ['application/pdf'],
-  status: 'coming-soon',
-  component: lazy(() => import('./planned/ReaderPage')),
+  status: 'available',
+  component: lazy(() => import('./read/DocumentReader')),
 }
 
 export const pdfCompressor: ToolModule = {
@@ -142,8 +142,8 @@ export const imageViewer: ToolModule = {
   route: '/read/images',
   features: [],
   acceptedMimeTypes: [],
-  status: 'coming-soon',
-  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('image-viewer') }))),
+  status: 'available',
+  component: lazy(() => import('./read/ImageViewer')),
 }
 
 export const textReader: ToolModule = {
@@ -156,8 +156,8 @@ export const textReader: ToolModule = {
   route: '/read/text',
   features: [],
   acceptedMimeTypes: [],
-  status: 'coming-soon',
-  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('text-reader') }))),
+  status: 'available',
+  component: lazy(() => import('./read/TextReader')),
 }
 
 export const ebookReader: ToolModule = {
@@ -170,8 +170,8 @@ export const ebookReader: ToolModule = {
   route: '/read/ebooks',
   features: [],
   acceptedMimeTypes: [],
-  status: 'coming-soon',
-  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('ebook-reader') }))),
+  status: 'available',
+  component: lazy(() => import('./read/EbookReader')),
 }
 
 export const pdfImages: ToolModule = {
