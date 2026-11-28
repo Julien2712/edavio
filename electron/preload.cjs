@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('edavio', {
   ytdlp: {
     status: () => ipcRenderer.invoke('ytdlp:status'),
     install: () => ipcRenderer.invoke('ytdlp:install'),
+    info: (url) => ipcRenderer.invoke('ytdlp:info', url),
     chooseDir: () => ipcRenderer.invoke('ytdlp:chooseDir'),
     download: (opts) => ipcRenderer.invoke('ytdlp:download', opts),
     cancel: (id) => ipcRenderer.invoke('ytdlp:cancel', id),
