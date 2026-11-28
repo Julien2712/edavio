@@ -19,6 +19,7 @@ import {
   documentReader,
   imageConverter,
   pdfCompressor,
+  videoDownloader,
 } from './future'
 
 // Adding a new tool = create its module + register it here. Nothing else changes.
@@ -41,5 +42,6 @@ ToolRegistry.register(pdfEditor)
   .register(pdfImages)
   .register(spreadsheetConverter)
   .register(mediaConverter)
+  .register(videoDownloader)
 
 export { ToolRegistry }

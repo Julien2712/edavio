@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, net, protocol, session, shell } from 'electron'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { registerYtDlp } from './ytdlp.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DEV_URL = 'http://127.0.0.1:5173'
@@ -22,7 +23,7 @@ function createWindow() {
     autoHideMenuBar: true,
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.mjs'),
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -78,6 +79,7 @@ if (!app.requestSingleInstanceLock()) {
   })
 
   app.whenReady().then(() => {
+    registerYtDlp(() => BrowserWindow.getAllWindows()[0])
     protocol.handle('app', (req) => {
       const rel = decodeURIComponent(new URL(req.url).pathname).replace(/^\/+/, '') || 'index.html'
       const file = path.normalize(path.join(DIST, rel))

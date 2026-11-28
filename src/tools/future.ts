@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { BookOpen, BookText, FileArchive, FileCode, FileImage, FileOutput, Files, Film, Image, Images, Minimize2, Music, ScanText, Table2 } from 'lucide-react'
+import { Download as DownloadIcon, BookOpen, BookText, FileArchive, FileCode, FileImage, FileOutput, Files, Film, Image, Images, Minimize2, Music, ScanText, Table2 } from 'lucide-react'
 import type { ToolModule } from '@/core/tools/types'
 
 /** Placeholders so the shell already shows the platform roadmap. */
@@ -214,4 +214,18 @@ export const mediaConverter: ToolModule = {
   acceptedMimeTypes: [],
   status: 'available',
   component: lazy(() => import('./convert/ConvertPages').then((m) => ({ default: m.MediaConverterPage }))),
+}
+
+export const videoDownloader: ToolModule = {
+  id: 'video-downloader',
+  section: 'convert',
+  category: 'conversion',
+  nameKey: 'tools.videoDownloader.name',
+  descriptionKey: 'tools.videoDownloader.description',
+  icon: DownloadIcon,
+  route: '/convert/download',
+  features: [],
+  acceptedMimeTypes: [],
+  status: 'available',
+  component: lazy(() => import('./convert/DownloadPage')),
 }

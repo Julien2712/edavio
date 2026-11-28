@@ -361,6 +361,10 @@
     "mediaConverter": {
       "name": "Convertir audio et vidéo",
       "description": "MP4, WebM, GIF, MP3, WAV, OGG…"
+    },
+    "videoDownloader": {
+      "name": "Télécharger une vidéo",
+      "description": "Depuis un lien YouTube et plus de 1000 sites"
     }
   },
   "notFound": {
@@ -1098,5 +1102,25 @@
     "light": "Clair",
     "sepia": "Sépia",
     "dark2": "Sombre"
+  },
+  "download": {
+    "desktopOnly": "Cette fonction est disponible uniquement dans l'application de bureau Edavio.",
+    "needTitle": "Un composant est nécessaire",
+    "needText": "Le téléchargement s'appuie sur yt-dlp, un outil open source. Edavio peut le télécharger une seule fois depuis le dépôt officiel (github.com/yt-dlp) ; il reste ensuite sur votre ordinateur.",
+    "install": "Installer yt-dlp",
+    "installError": "Échec de l'installation. Vérifiez votre connexion.",
+    "type": "Type",
+    "video": "Vidéo",
+    "audio": "Audio seul",
+    "maxQuality": "Qualité max.",
+    "best": "Meilleure",
+    "folder": "Dossier",
+    "change": "Changer",
+    "download": "Télécharger",
+    "cancel": "Annuler",
+    "show": "Afficher",
+    "failed": "Échec du téléchargement :",
+    "update": "mettre à jour",
+    "rights": "À utiliser pour du contenu dont vous avez le droit de disposer."
   }
 }
