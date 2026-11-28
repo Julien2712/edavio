@@ -41,7 +41,7 @@ export default function DownloadPage() {
     const u = url.trim()
     if (!api || !st?.available || !/^https?:\/\/\S+$/i.test(u)) return
     let live = true
-    const t = setTimeout(() => { setLoadingMeta(true); void api.info(u).then((m) => { if (live) { setMeta(m); setLoadingMeta(false) } }) }, 600)
+    const t = setTimeout(() => { setLoadingMeta(true); void api.info(u).then((m) => { if (live) { setMeta(m); setLoadingMeta(false) } }) }, 300)
     return () => { live = false; clearTimeout(t); setLoadingMeta(false) }
   }, [url, api, st?.available])
 

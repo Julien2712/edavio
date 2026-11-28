@@ -67,6 +67,14 @@ export function registerYtDlp(getWindow) {
     let parsed
     try { parsed = new URL(url) } catch { return null }
     if (!/^https?:$/.test(parsed.protocol)) return null
+    const dataUrl = async (u) => { try { const r = await net.fetch(u); return `data:${r.headers.get('content-type') ?? 'image/jpeg'};base64,${Buffer.from(await r.arrayBuffer()).toString('base64')}` } catch { return null } }
+    // Fast path for YouTube: the public oEmbed endpoint answers in a fraction of a second.
+    if (/(^|\.)(youtube\.com|youtu\.be)$/i.test(parsed.hostname)) {
+      try {
+        const r = await net.fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(parsed.toString())}`)
+        if (r.ok) { const j = await r.json(); return { title: j.title, uploader: j.author_name, duration: '', thumbnail: j.thumbnail_url ? await dataUrl(j.thumbnail_url) : null } }
+      } catch { /* fall back to yt-dlp */ }
+    }
     const found = await locate()
     if (!found) return null
     const out = await new Promise((resolve) => {
