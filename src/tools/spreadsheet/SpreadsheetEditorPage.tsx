@@ -232,7 +232,9 @@ export default function SpreadsheetEditorPage() {
     reveal(rr, cc)
   }
 
+  // Like Excel, the sheet has a fixed size: it no longer grows while scrolling (see "Sheet size").
   const growSheet = (axis: 'rows' | 'cols') => {
+    if (axis) return
     const d = docRef.current
     if (!d) return
     const cur = d.wb.sheets[si]
