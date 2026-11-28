@@ -14,8 +14,11 @@ try { ffmpegStatic = createRequire(import.meta.url)('ffmpeg-static') } catch { /
 const ffmpegPath = ffmpegStatic ? String(ffmpegStatic).replace('app.asar', 'app.asar.unpacked') : null
 
 // YouTube now needs a JavaScript runtime to solve its player challenges: Electron itself can act as Node.js.
-const runtimeArgs = () => ['--js-runtimes', `node:${process.execPath}`, '--remote-components', 'ejs:github']
-const runtimeEnv = () => ({ ...process.env, ELECTRON_RUN_AS_NODE: '1' })
+// A real Node.js on the PATH is preferred (reliable); otherwise Electron itself is used as Node.
+let nodeOnPath
+const hasNode = async () => (nodeOnPath ??= !!(await run('node', ['--version'])))
+const runtimeArgs = async () => ['--js-runtimes', (await hasNode()) ? 'node' : `node:${process.execPath}`]
+const runtimeEnv = async () => ((await hasNode()) ? process.env : { ...process.env, ELECTRON_RUN_AS_NODE: '1' })
 
 function run(bin, args) {
   return new Promise((resolve) => {
@@ -87,9 +90,10 @@ export function registerYtDlp(getWindow) {
     }
     const found = await locate()
     if (!found) return null
+    const rtArgs = await runtimeArgs(), rtEnv = await runtimeEnv()
     const out = await new Promise((resolve) => {
       let buf = ''
-      const p = spawn(found.bin, ['--no-playlist', '--skip-download', '--no-warnings', ...runtimeArgs(), '--print', '%(title)s\t%(uploader)s\t%(duration_string)s\t%(thumbnail)s', '--', parsed.toString()], { windowsHide: true, env: runtimeEnv() })
+      const p = spawn(found.bin, ['--no-playlist', '--skip-download', '--no-warnings', ...rtArgs, '--print', '%(title)s\t%(uploader)s\t%(duration_string)s\t%(thumbnail)s', '--', parsed.toString()], { windowsHide: true, env: rtEnv })
       const timer = setTimeout(() => p.kill(), 30000)
       p.stdout.on('data', (d) => (buf += d))
       p.on('error', () => resolve(null))
@@ -126,12 +130,13 @@ export function registerYtDlp(getWindow) {
     const fmtArgs = mode === 'audio'
       ? ['-f', 'bestaudio/best', '-x', '--audio-format', 'mp3', '--audio-quality', '0']
       : ['-f', `bv*${cap}[vcodec^=avc1]+ba[ext=m4a]/bv*${cap}+ba/b${cap}/b`, '--merge-output-format', 'mp4']
-    const args = ['--newline', '--no-playlist', '--no-warnings', '--windows-filenames', '--no-mtime', '--file-access-retries', '30', '--retries', '10', ...runtimeArgs(), ...(ffmpegPath ? ['--ffmpeg-location', ffmpegPath] : []),
+    const dlEnv = await runtimeEnv()
+    const args = ['--newline', '--no-playlist', '--no-warnings', '--windows-filenames', '--no-mtime', '--file-access-retries', '30', '--retries', '10', ...(await runtimeArgs()), ...(ffmpegPath ? ['--ffmpeg-location', ffmpegPath] : []),
       '--progress-template', 'download:%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s',
       ...fmtArgs, '-P', target, '-o', '%(title).120B.%(ext)s', '--print', 'after_move:filepath', '--', parsed.toString()]
     const send = (data) => getWindow()?.webContents.send('ytdlp:progress', { id, ...data })
     return await new Promise((resolve) => {
-      const p = spawn(found.bin, args, { windowsHide: true, env: runtimeEnv() })
+      const p = spawn(found.bin, args, { windowsHide: true, env: dlEnv })
       let done = false
       const finish = (r) => { if (done) return; done = true; jobs.delete(id); resolve(r) }
       jobs.set(id, { proc: p, finish, cancelled: false })
@@ -139,10 +144,10 @@ export function registerYtDlp(getWindow) {
       p.stdout.on('data', (d) => {
         for (const line of String(d).split(/\r?\n/)) {
           if (line.startsWith('download:')) { const [pct, speed, eta] = line.slice(9).split('|'); send({ percent: parseFloat(pct) || 0, speed: speed?.trim(), eta: eta?.trim() }) }
-          else if (line.trim()) file = line.trim()
+          else if (line.trim()) { file = line.trim(); send({ log: file.slice(0, 160) }) }
         }
       })
-      p.stderr.on('data', (d) => (err += d))
+      p.stderr.on('data', (d) => { err += d; const l = String(d).trim().split(/\r?\n/).pop(); if (l) send({ log: l.slice(0, 160) }) })
       p.on('error', () => finish({ ok: false, error: 'spawn' }))
       p.on('close', (code, sig) => finish(code === 0 && file ? { ok: true, file } : { ok: false, error: sig ? 'cancelled' : err.split('\n').filter(Boolean).pop() ?? 'failed' }))
     })

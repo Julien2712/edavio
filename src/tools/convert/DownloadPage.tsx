@@ -13,7 +13,7 @@ interface Bridge {
   download: (o: { id: string; url: string; mode: 'video' | 'audio'; height: number; dir?: string }) => Promise<{ ok: boolean; file?: string; error?: string }>
   cancel: (id: string) => Promise<void>
   reveal: (file: string) => Promise<void>
-  onProgress: (cb: (d: { id: string; percent: number; speed?: string; eta?: string }) => void) => () => void
+  onProgress: (cb: (d: { id: string; percent?: number; speed?: string; eta?: string; log?: string }) => void) => () => void
 }
 const bridge = (): Bridge | undefined => (window as unknown as { edavio?: { ytdlp?: Bridge } }).edavio?.ytdlp
 
@@ -27,14 +27,14 @@ export default function DownloadPage() {
   const [mode, setMode] = useState<'video' | 'audio'>('video')
   const [height, setHeight] = useState(0)
   const [dir, setDir] = useState<string>()
-  const [job, setJob] = useState<{ id: string; percent: number; speed?: string; eta?: string } | null>(null)
+  const [job, setJob] = useState<{ id: string; percent: number; speed?: string; eta?: string; log?: string } | null>(null)
   const [result, setResult] = useState<{ ok: boolean; file?: string; error?: string } | null>(null)
   const idRef = useRef('')
   const [meta, setMeta] = useState<{ title: string; uploader: string; duration: string; thumbnail: string | null } | null>(null)
   const [loadingMeta, setLoadingMeta] = useState(false)
 
   useEffect(() => { void api?.status().then(setSt) }, [api])
-  useEffect(() => api?.onProgress((d) => d.id === idRef.current && setJob(d)), [api])
+  useEffect(() => api?.onProgress((d) => d.id === idRef.current && setJob((j) => ({ ...(j ?? { id: d.id, percent: 0 }), ...d, percent: d.percent ?? j?.percent ?? 0 }))), [api])
 
   useEffect(() => {
     setMeta(null)
@@ -89,6 +89,7 @@ export default function DownloadPage() {
           {job ? (
             <div className="rounded-xl border border-[var(--color-border)] p-4">
               <div className="flex items-center gap-3 text-sm"><Loader2 className="size-4 animate-spin text-[var(--color-accent)]" /><span className="flex-1 tabular-nums">{job.percent === 0 && !job.speed ? c('preparing') : `${job.percent.toFixed(0)} %`} {job.speed && job.speed !== 'NA' ? `· ${job.speed}` : ''} {job.eta && job.eta !== 'NA' ? `· ${job.eta}` : ''}</span><Button size="xs" variant="secondary" onClick={() => { void api.cancel(job.id); idRef.current = ''; setJob(null) }}><X className="size-3.5" />{c('cancel')}</Button></div>
+              {job.log && <p className="mt-2 truncate text-xs text-[var(--color-text-tertiary)]">{job.log}</p>}
               <div className="mt-2 h-1.5 overflow-hidden rounded bg-[var(--color-border)]"><div className="h-full bg-[var(--color-accent)] transition-all" style={{ width: `${job.percent}%` }} /></div>
             </div>
           ) : <Button className="h-11 w-full" disabled={!valid} onClick={() => void start()}><Download className="size-4" />{c('download')}</Button>}
