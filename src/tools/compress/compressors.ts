@@ -223,7 +223,7 @@ const VIDEO_PROFILE: Record<Level, { vbps: number; abps: number; maxH: number }>
   max: { vbps: 800_000, abps: 64_000, maxH: 480 },
 }
 
-export async function compressMedia(file: File, level: Level, onProgress?: Progress): Promise<CompressResult> {
+export async function compressMedia(file: File, level: Level, onProgress?: Progress, force = false): Promise<CompressResult> {
   const before = file.size
   const isVideo = file.type.startsWith('video/') || /\.(mp4|mov|mkv|webm|avi|m4v)$/i.test(file.name)
   const prof = VIDEO_PROFILE[level]
@@ -272,8 +272,8 @@ export async function compressMedia(file: File, level: Level, onProgress?: Progr
     void AC.close()
     const blob = new Blob(chunks, { type: mime.split(';')[0] })
     onProgress?.(1)
-    const unchanged = blob.size >= before
-    return { blob: unchanged ? file : blob, name: file.name.replace(/\.[^.]+$/, '') + '-compressed.webm', before, after: unchanged ? before : blob.size, unchanged }
+    const unchanged = !force && blob.size >= before
+    return { blob: unchanged ? file : blob, name: file.name.replace(/\.[^.]+$/, '') + (force ? '.webm' : '-compressed.webm'), before, after: unchanged ? before : blob.size, unchanged }
   } finally {
     URL.revokeObjectURL(url)
   }

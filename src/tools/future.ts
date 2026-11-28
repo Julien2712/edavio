@@ -44,8 +44,8 @@ export const imageConverter: ToolModule = {
   route: '/convert/images',
   features: [],
   acceptedMimeTypes: ['image/png', 'image/jpeg', 'image/webp'],
-  status: 'coming-soon',
-  component: lazy(() => import('./planned/ImageConvertPage')),
+  status: 'available',
+  component: lazy(() => import('./convert/ConvertPages').then((m) => ({ default: m.ImageConverterPage }))),
 }
 
 export const documentConverter: ToolModule = {
@@ -58,8 +58,8 @@ export const documentConverter: ToolModule = {
   route: '/convert/documents',
   features: [],
   acceptedMimeTypes: ['application/pdf'],
-  status: 'coming-soon',
-  component: lazy(() => import('./planned/DocumentConvertPage')),
+  status: 'available',
+  component: lazy(() => import('./convert/ConvertPages').then((m) => ({ default: m.DocumentConverterPage }))),
 }
 
 export const fileCompressor: ToolModule = {
@@ -184,8 +184,8 @@ export const pdfImages: ToolModule = {
   route: '/convert/pdf-images',
   features: [],
   acceptedMimeTypes: [],
-  status: 'coming-soon',
-  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('pdf-images') }))),
+  status: 'available',
+  component: lazy(() => import('./convert/ConvertPages').then((m) => ({ default: m.PdfImagesPage }))),
 }
 
 export const spreadsheetConverter: ToolModule = {
@@ -198,8 +198,8 @@ export const spreadsheetConverter: ToolModule = {
   route: '/convert/spreadsheets',
   features: [],
   acceptedMimeTypes: [],
-  status: 'coming-soon',
-  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('spreadsheet-converter') }))),
+  status: 'available',
+  component: lazy(() => import('./convert/ConvertPages').then((m) => ({ default: m.SpreadsheetConverterPage }))),
 }
 
 export const mediaConverter: ToolModule = {
@@ -212,6 +212,6 @@ export const mediaConverter: ToolModule = {
   route: '/convert/media',
   features: [],
   acceptedMimeTypes: [],
-  status: 'coming-soon',
-  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('media-converter') }))),
+  status: 'available',
+  component: lazy(() => import('./convert/ConvertPages').then((m) => ({ default: m.MediaConverterPage }))),
 }
