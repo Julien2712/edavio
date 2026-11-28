@@ -28,7 +28,7 @@ import { isProjectFile, downloadFile, type ProjectFile } from '@/workspace/proje
 
 interface Doc { wb: Workbook; past: Workbook[]; future: Workbook[] }
 
-const newWorkbook = (title: string, sheetName: string): Workbook => ({ title, sheets: [newSheet(sheetName, 20, 30)] })
+const newWorkbook = (title: string, sheetName: string): Workbook => ({ title, sheets: [newSheet(sheetName, 30, 20)] })
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 
 export default function SpreadsheetEditorPage() {
@@ -636,7 +636,7 @@ export default function SpreadsheetEditorPage() {
     commit((w) => {
       let n = w.sheets.length + 1
       while (w.sheets.some((s) => s.name === x('sheetName', { n }))) n++
-      return { ...w, sheets: [...w.sheets, newSheet(x('sheetName', { n }), 20, 30)] }
+      return { ...w, sheets: [...w.sheets, newSheet(x('sheetName', { n }), 30, 20)] }
     })
     setSi(docRef.current!.wb.sheets.length - 1)
     setSel(single(0, 0))
