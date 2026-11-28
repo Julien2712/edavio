@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import * as XLSX from 'xlsx'
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
+import { PDFDocument } from 'pdf-lib'
 import { BatchTool, type OutFile } from '../planned/BatchTool'
 import { baseName, canvasBlob, decodeImage, loadPdfJs } from '../shared/util'
-import { compressMedia } from '../compress/compressors'
+import { htmlToPdf } from './htmlToPdf'
+import { runFfmpeg } from '../shared/ffmpeg'
 import { exportDocumentAsDocx, exportDocumentAsHtml, exportDocumentAsMarkdown, exportDocumentAsTxt, importDocumentFile } from '../document/docFormats'
 
 const useC = () => { const { t } = useTranslation(); return (k: string) => (t as unknown as (k: string) => string)(`convert.${k}`) }
@@ -181,26 +182,6 @@ async function pdfToHtml(file: File): Promise<string> {
   return html
 }
 
-async function textToPdf(text: string, title: string): Promise<Blob> {
-  const pdf = await PDFDocument.create()
-  const font = await pdf.embedFont(StandardFonts.Helvetica)
-  const size = 11, lh = 15, m = 56, W = 595.28, H = 841.89
-  let page = pdf.addPage([W, H]); let y = H - m
-  const clean = (s: string) => s.replace(/[^\x09\x20-\x7e\xa0-\xff€’‘“”…–—]/g, '?').replace(/’|‘/g, "'").replace(/“|”/g, '"').replace(/…/g, '...').replace(/–|—/g, '-').replace(/€/g, 'EUR')
-  const put = (s: string) => { if (y < m) { page = pdf.addPage([W, H]); y = H - m } page.drawText(s, { x: m, y, size, font, color: rgb(0.1, 0.1, 0.1) }); y -= lh }
-  for (const para of clean(text).split('\n')) {
-    if (!para.trim()) { y -= lh / 2; continue }
-    let cur = ''
-    for (const w of para.split(' ')) {
-      const t = cur ? `${cur} ${w}` : w
-      if (font.widthOfTextAtSize(t, size) > W - 2 * m && cur) { put(cur); cur = w } else cur = t
-    }
-    put(cur)
-  }
-  pdf.setTitle(title)
-  return new Blob([(await pdf.save()) as BlobPart], { type: 'application/pdf' })
-}
-
 export function DocumentConverterPage() {
   const c = useC()
   return (
@@ -216,39 +197,52 @@ export function DocumentConverterPage() {
           : out === 'html' ? exportDocumentAsHtml(html, name)
           : out === 'md' ? exportDocumentAsMarkdown(html)
           : out === 'txt' ? exportDocumentAsTxt(html)
-          : await textToPdf(await exportDocumentAsTxt(html).text(), name)
+          : await htmlToPdf(html, name)
         return [{ name: `${name}.${out}`, blob }]
       }}
     />
   )
 }
 
-// ── Audio / video ────────────────────────────────────────────────────────────
+// ── Audio / video (ffmpeg compiled to WebAssembly, runs locally) ─────────────
 
-function wavBlob(buf: AudioBuffer): Blob {
-  const ch = buf.numberOfChannels, len = buf.length, rate = buf.sampleRate
-  const out = new DataView(new ArrayBuffer(44 + len * ch * 2))
-  const w = (o: number, s: string) => [...s].forEach((x, i) => out.setUint8(o + i, x.charCodeAt(0)))
-  w(0, 'RIFF'); out.setUint32(4, 36 + len * ch * 2, true); w(8, 'WAVEfmt '); out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, ch, true)
-  out.setUint32(24, rate, true); out.setUint32(28, rate * ch * 2, true); out.setUint16(32, ch * 2, true); out.setUint16(34, 16, true); w(36, 'data'); out.setUint32(40, len * ch * 2, true)
-  const data = [...Array(ch).keys()].map((i) => buf.getChannelData(i))
-  let o = 44
-  for (let i = 0; i < len; i++) for (let k = 0; k < ch; k++) { const s = Math.max(-1, Math.min(1, data[k]![i]!)); out.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7fff, true); o += 2 }
-  return new Blob([out], { type: 'audio/wav' })
-}
+const AUDIO_OUT = ['mp3', 'm4a', 'ogg', 'wav', 'flac']
+const isAudioFile = (f: File) => /\.(mp3|wav|ogg|aac|m4a|flac|opus|wma)$/i.test(f.name)
 
 export function MediaConverterPage() {
   const c = useC()
+  const [height, setHeight] = useState(0)
+  const [abr, setAbr] = useState(192)
+  const [quality, setQuality] = useState<'high' | 'balanced' | 'small'>('balanced')
+  const crf = { high: 20, balanced: 26, small: 32 }[quality]
   return (
-    <BatchTool toolId="media-converter" formats={['MP4', 'WEBM', 'MOV', 'MP3', 'WAV', 'OGG', 'M4A']} re={/\.(mp4|mov|mkv|webm|m4v|avi|mp3|wav|ogg|aac|m4a|flac|opus)$/i} hint={c('mediaHint')}
-      outputs={[{ id: 'wav', label: c('audioWav') }, { id: 'webm', label: c('videoWebm') }]}
+    <BatchTool toolId="media-converter" formats={['MP4', 'MKV', 'WEBM', 'MOV', 'AVI', 'MP3', 'WAV', 'OGG', 'M4A', 'FLAC']} re={/\.(mp4|mov|mkv|webm|m4v|avi|wmv|flv|mp3|wav|ogg|aac|m4a|flac|opus|wma)$/i} hint={c('mediaHint')}
+      outputs={[{ id: 'mp4', label: 'MP4' }, { id: 'webm', label: 'WebM' }, { id: 'gif', label: 'GIF' }, { id: 'mp3', label: 'MP3' }, { id: 'm4a', label: 'M4A' }, { id: 'ogg', label: 'OGG' }, { id: 'wav', label: 'WAV' }, { id: 'flac', label: 'FLAC' }]}
+      outputFor={(f) => (isAudioFile(f) ? AUDIO_OUT : ['mp4', 'webm', 'gif', ...AUDIO_OUT])}
+      options={(o) => (
+        <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">
+          {['mp4', 'webm'].includes(o) && (<>
+            <div className="flex items-center gap-3"><span className="w-36 shrink-0">{c('quality')}</span>{(['high', 'balanced', 'small'] as const).map((q) => <button key={q} type="button" onClick={() => setQuality(q)} className={`rounded-lg border px-3 py-1 ${quality === q ? 'border-[var(--color-accent)] bg-[var(--color-accent-light)] text-[var(--color-accent)]' : 'border-[var(--color-border)]'}`}>{c('q_' + q)}</button>)}</div>
+            <Slider label={c('maxHeight')} value={height} min={0} max={2160} step={120} onChange={setHeight} suffix={height ? ' p' : ' ∞'} />
+          </>)}
+          {o === 'gif' && <Slider label={c('maxHeight')} value={height || 360} min={120} max={720} step={60} onChange={setHeight} suffix=" p" />}
+          {['mp3', 'm4a', 'ogg'].includes(o) && <Slider label={c('bitrate')} value={abr} min={64} max={320} step={32} onChange={setAbr} suffix=" kb/s" />}
+        </div>
+      )}
       run={async (file, out, progress) => {
-        if (out === 'wav') {
-          const ac = new AudioContext()
-          try { return [{ name: baseName(file.name) + '.wav', blob: wavBlob(await ac.decodeAudioData(await file.arrayBuffer())) }] } finally { void ac.close(); progress(1) }
+        const vf = (h: number) => (h ? ['-vf', `scale=-2:${h}`] : [])
+        const a = `${abr}k`
+        const args: Record<string, string[]> = {
+          mp4: [...vf(height), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', String(crf), '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart'],
+          webm: [...vf(height), '-c:v', 'libvpx', '-b:v', '0', '-crf', String(crf + 4), '-deadline', 'realtime', '-cpu-used', '5', '-c:a', 'libvorbis', '-b:a', '128k'],
+          gif: ['-vf', `fps=12,scale=-2:${height || 360}:flags=lanczos`, '-loop', '0', '-an'],
+          mp3: ['-vn', '-c:a', 'libmp3lame', '-b:a', a],
+          m4a: ['-vn', '-c:a', 'aac', '-b:a', a],
+          ogg: ['-vn', '-c:a', 'libvorbis', '-b:a', a],
+          wav: ['-vn', '-c:a', 'pcm_s16le'],
+          flac: ['-vn', '-c:a', 'flac'],
         }
-        const r = await compressMedia(file, 'light', progress, true)
-        return [{ name: `${baseName(file.name)}.webm`, blob: r.blob }]
+        return [{ name: `${baseName(file.name)}.${out}`, blob: await runFfmpeg(file, out, args[out]!, progress) }]
       }}
     />
   )

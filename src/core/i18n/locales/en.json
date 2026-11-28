@@ -1007,7 +1007,7 @@
     "extract": "Extract an archive",
     "dropCreate": "Drop the files to archive",
     "dropExtract": "Drop an archive to extract",
-    "hint": "ZIP, TAR.GZ, TGZ, TAR, GZ · everything stays on your device",
+    "hint": "ZIP, 7Z, RAR, TAR.GZ, TGZ, TAR, GZ · everything stays on your device",
     "addFolder": "Add a folder",
     "format": "Format",
     "level": "Compression",
@@ -1025,7 +1025,7 @@
     "pdfImgHint": "PDF → images, or images → PDF",
     "sheetHint": "XLSX, XLS, CSV, TSV, ODS, JSON",
     "docHint": "DOCX, PDF, HTML, Markdown, TXT, RTF",
-    "mediaHint": "Audio and video — conversion runs in real time",
+    "mediaHint": "Video and audio — processed locally",
     "drop": "Drop your files here or click to browse",
     "convertTo": "Convert to",
     "quality": "Quality",
@@ -1047,7 +1047,12 @@
     "downloadZip": "Download all (ZIP)",
     "files": "files",
     "error": "Conversion failed",
-    "notSupported": "Conversion not available for this file"
+    "notSupported": "Conversion not available for this file",
+    "q_high": "High",
+    "q_balanced": "Balanced",
+    "q_small": "Small",
+    "maxHeight": "Max height",
+    "bitrate": "Audio bitrate"
   },
   "read": {
     "drop": "Drop a file here or click to browse",

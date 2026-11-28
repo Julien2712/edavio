@@ -82,5 +82,27 @@ export async function extractArchive(file: File): Promise<Entry[]> {
   if (n.endsWith('.tar')) return parseTar(buf)
   if (n.endsWith('.tar.gz') || n.endsWith('.tgz')) return parseTar(await gunzip(buf))
   if (n.endsWith('.gz')) return [{ name: file.name.replace(/\.gz$/i, ''), data: await gunzip(buf) }]
+  if (/\.(7z|rar|cab|iso)$/i.test(n)) return extractWithLibarchive(file)
   throw new Error('unsupported')
+}
+
+/** 7Z, RAR (and other formats libarchive knows) — read-only, runs as WebAssembly. */
+async function extractWithLibarchive(file: File): Promise<Entry[]> {
+  const { Archive } = await import('libarchive.js')
+  Archive.init({ workerUrl: new URL('libarchive/worker-bundle.js', document.baseURI).toString() })
+  const ar = await Archive.open(file)
+  try {
+    if (await ar.hasEncryptedData()) throw new Error('encrypted')
+    const out: Entry[] = []
+    const walk = async (node: Record<string, unknown>, prefix: string) => {
+      for (const [k, v] of Object.entries(node)) {
+        if (v instanceof File || v instanceof Blob) out.push({ name: prefix + k, data: new Uint8Array(await v.arrayBuffer()) })
+        else await walk(v as Record<string, unknown>, prefix + k + '/')
+      }
+    }
+    await walk((await ar.extractFiles()) as Record<string, unknown>, '')
+    return out
+  } finally {
+    await ar.close()
+  }
 }

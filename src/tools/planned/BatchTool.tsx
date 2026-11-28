@@ -63,7 +63,7 @@ export function BatchTool({ toolId, formats, re, hint, outputs, outputFor, optio
         <h2 className="mb-3 text-xs font-medium uppercase tracking-widest text-[var(--color-text-tertiary)]">{c('convertTo')}</h2>
         <div className="flex flex-wrap gap-1.5">
           {offered.map((o) => (
-            <button key={o.id} type="button" onClick={() => setOut(o.id)} className={cn('rounded-lg border px-3 py-1.5 text-sm', current === o.id ? 'border-[var(--color-accent)] bg-[var(--color-accent-light)] font-medium text-[var(--color-accent)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]')}>{o.label}</button>
+            <button key={o.id} type="button" onClick={() => { setOut(o.id); if (!running) setItems((cur) => cur.map((i) => (i.status === 'busy' ? i : { id: i.id, file: i.file, status: 'wait', progress: 0 }))) }} className={cn('rounded-lg border px-3 py-1.5 text-sm', current === o.id ? 'border-[var(--color-accent)] bg-[var(--color-accent-light)] font-medium text-[var(--color-accent)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]')}>{o.label}</button>
           ))}
         </div>
         {options && <div className="mt-4">{options(current)}</div>}

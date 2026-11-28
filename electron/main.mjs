@@ -1,10 +1,14 @@
-import { app, BrowserWindow, dialog, session, shell } from 'electron'
+import { app, BrowserWindow, dialog, net, protocol, session, shell } from 'electron'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DEV_URL = 'http://127.0.0.1:5173'
 const isDev = !app.isPackaged
+const DIST = path.join(__dirname, '..', 'dist')
+
+// Production build is served through app://edavio so WebAssembly/workers/fetch behave like on http.
+protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }])
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -47,7 +51,7 @@ function createWindow() {
     return { action: 'deny' }
   })
   win.webContents.on('will-navigate', (event, url) => {
-    const internal = isDev ? url.startsWith(DEV_URL) : url.startsWith('file://')
+    const internal = isDev ? url.startsWith(DEV_URL) : url.startsWith('app://')
     if (!internal) {
       event.preventDefault()
       if (url.startsWith('http')) void shell.openExternal(url)
@@ -57,7 +61,7 @@ function createWindow() {
   if (isDev) {
     void win.loadURL(DEV_URL)
   } else {
-    void win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'))
+    void win.loadURL('app://edavio/index.html')
   }
 }
 
@@ -74,6 +78,12 @@ if (!app.requestSingleInstanceLock()) {
   })
 
   app.whenReady().then(() => {
+    protocol.handle('app', (req) => {
+      const rel = decodeURIComponent(new URL(req.url).pathname).replace(/^\/+/, '') || 'index.html'
+      const file = path.normalize(path.join(DIST, rel))
+      if (!file.startsWith(DIST)) return new Response('Forbidden', { status: 403 })
+      return net.fetch(pathToFileURL(file).toString())
+    })
     // Lets the editors list the fonts installed on this computer (window.queryLocalFonts)
     const ses = session.defaultSession
     ses.setPermissionRequestHandler((_wc, permission, cb) => cb(permission === 'local-fonts'))

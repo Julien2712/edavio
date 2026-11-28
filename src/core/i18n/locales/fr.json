@@ -1007,7 +1007,7 @@
     "extract": "Extraire une archive",
     "dropCreate": "Déposez les fichiers à archiver",
     "dropExtract": "Déposez une archive à extraire",
-    "hint": "ZIP, TAR.GZ, TGZ, TAR, GZ · tout reste sur votre appareil",
+    "hint": "ZIP, 7Z, RAR, TAR.GZ, TGZ, TAR, GZ · tout reste sur votre appareil",
     "addFolder": "Ajouter un dossier",
     "format": "Format",
     "level": "Compression",
@@ -1025,7 +1025,7 @@
     "pdfImgHint": "PDF → images, ou images → PDF",
     "sheetHint": "XLSX, XLS, CSV, TSV, ODS, JSON",
     "docHint": "DOCX, PDF, HTML, Markdown, TXT, RTF",
-    "mediaHint": "Audio et vidéo — la conversion se fait en temps réel",
+    "mediaHint": "Vidéo et audio — traité localement, rapide",
     "drop": "Déposez vos fichiers ici ou cliquez pour parcourir",
     "convertTo": "Convertir en",
     "quality": "Qualité",
@@ -1047,7 +1047,12 @@
     "downloadZip": "Tout télécharger (ZIP)",
     "files": "fichiers",
     "error": "Échec de la conversion",
-    "notSupported": "Conversion non disponible pour ce fichier"
+    "notSupported": "Conversion non disponible pour ce fichier",
+    "q_high": "Haute",
+    "q_balanced": "Équilibrée",
+    "q_small": "Légère",
+    "maxHeight": "Hauteur maximale",
+    "bitrate": "Débit audio"
   },
   "read": {
     "drop": "Déposez un fichier ici ou cliquez pour parcourir",

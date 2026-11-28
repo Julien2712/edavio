@@ -62,7 +62,7 @@ export default function ArchivePage() {
         <p className="text-sm font-medium text-[var(--color-text-primary)]">{mode === 'create' ? c('dropCreate') : c('dropExtract')}</p>
         <p className="text-xs text-[var(--color-text-tertiary)]">{c('hint')}</p>
       </div>
-      <input ref={input} type="file" multiple={mode === 'create'} accept={mode === 'extract' ? '.zip,.tar,.gz,.tgz' : undefined} className="sr-only" tabIndex={-1} onChange={(e) => { if (e.target.files) void add(e.target.files); e.target.value = '' }} />
+      <input ref={input} type="file" multiple={mode === 'create'} accept={mode === 'extract' ? '.zip,.tar,.gz,.tgz,.7z,.rar' : undefined} className="sr-only" tabIndex={-1} onChange={(e) => { if (e.target.files) void add(e.target.files); e.target.value = '' }} />
       <input ref={dirInput} type="file" className="sr-only" tabIndex={-1} {...({ webkitdirectory: '' } as object)} onChange={(e) => { if (e.target.files) void add(e.target.files); e.target.value = '' }} />
       {mode === 'create' && <Button variant="secondary" size="sm" className="mt-3 gap-1.5" onClick={() => dirInput.current?.click()}><FolderOpen className="size-4" />{c('addFolder')}</Button>}
 
