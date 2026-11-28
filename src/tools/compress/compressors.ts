@@ -164,23 +164,131 @@ export async function compressZipDocument(file: File, level: Level, onProgress?:
 
 // ── plain images ──────────────────────────────────────────────────────────────
 
-export async function compressImage(file: File, level: Level): Promise<CompressResult> {
-  const before = file.size
-  const bmp = await createImageBitmap(file)
-  const type = file.type === 'image/png' ? 'image/png' : file.type === 'image/webp' ? 'image/webp' : 'image/jpeg'
-  const out = await reencode(bmp, type, level)
-  bmp.close()
-  const unchanged = out.blob.size >= before
-  const ext = type === 'image/png' ? 'png' : type === 'image/webp' ? 'webp' : 'jpg'
-  return { blob: unchanged ? file : out.blob, name: file.name.replace(/\.[^.]+$/, '') + `-compressed.${ext}`, before, after: unchanged ? before : out.blob.size, unchanged }
+export type ImageFormat = 'auto' | 'jpeg' | 'webp' | 'png'
+export interface ImageOptions {
+  format: ImageFormat
+  /** overrides the level's quality (0.3 – 1) */
+  quality?: number
+  /** overrides the level's maximum long side (px) */
+  maxPx?: number
 }
 
-export const ACCEPT = '.pdf,.docx,.pptx,.xlsx,.odt,.ods,.odp,.jpg,.jpeg,.png,.webp'
+async function decodeImage(file: File): Promise<ImageBitmap> {
+  try {
+    return await createImageBitmap(file)
+  } catch {
+    // SVG and a few other formats need an <img>
+    const url = URL.createObjectURL(file)
+    try {
+      const img = new Image()
+      img.src = url
+      await img.decode()
+      const w = img.naturalWidth || 1024, h = img.naturalHeight || 1024
+      const c = makeCanvas(w, h)
+      c.getContext('2d')!.drawImage(img, 0, 0, w, h)
+      return await createImageBitmap(c)
+    } finally {
+      URL.revokeObjectURL(url)
+    }
+  }
+}
+
+export async function compressImage(file: File, level: Level, opts: ImageOptions = { format: 'auto' }): Promise<CompressResult> {
+  const before = file.size
+  const bmp = await decodeImage(file)
+  const prof = PROFILE[level]
+  const same = file.type === 'image/png' ? 'image/png' : file.type === 'image/jpeg' ? 'image/jpeg' : 'image/webp'
+  const type = opts.format === 'auto' ? same : opts.format === 'jpeg' ? 'image/jpeg' : opts.format === 'png' ? 'image/png' : 'image/webp'
+  const k = Math.min(1, (opts.maxPx ?? prof.maxPx) / Math.max(bmp.width, bmp.height))
+  const w = Math.max(1, Math.round(bmp.width * k)), h = Math.max(1, Math.round(bmp.height * k))
+  const c = makeCanvas(w, h)
+  const g = c.getContext('2d')!
+  if (type === 'image/jpeg') { g.fillStyle = '#fff'; g.fillRect(0, 0, w, h) }
+  g.imageSmoothingQuality = 'high'
+  g.drawImage(bmp, 0, 0, w, h)
+  bmp.close()
+  const blob = await canvasToBlob(c, type, opts.quality ?? prof.quality)
+  const ext = type === 'image/png' ? 'png' : type === 'image/webp' ? 'webp' : 'jpg'
+  const converted = type !== same
+  const unchanged = !converted && blob.size >= before
+  return { blob: unchanged ? file : blob, name: file.name.replace(/\.[^.]+$/, '') + `-compressed.${ext}`, before, after: unchanged ? before : blob.size, unchanged }
+}
+
+// ── audio / video (re-encoded in the browser, plays in real time) ────────────
+
+export interface MediaOptions { maxHeight?: number }
+const VIDEO_PROFILE: Record<Level, { vbps: number; abps: number; maxH: number }> = {
+  light: { vbps: 4_000_000, abps: 160_000, maxH: 1080 },
+  balanced: { vbps: 1_800_000, abps: 112_000, maxH: 720 },
+  max: { vbps: 800_000, abps: 64_000, maxH: 480 },
+}
+
+export async function compressMedia(file: File, level: Level, onProgress?: Progress): Promise<CompressResult> {
+  const before = file.size
+  const isVideo = file.type.startsWith('video/') || /\.(mp4|mov|mkv|webm|avi|m4v)$/i.test(file.name)
+  const prof = VIDEO_PROFILE[level]
+  const url = URL.createObjectURL(file)
+  const el = document.createElement(isVideo ? 'video' : 'audio') as HTMLVideoElement
+  el.src = url
+  el.muted = false
+  el.preload = 'auto'
+  ;(el as HTMLVideoElement).playsInline = true
+  try {
+    await new Promise<void>((res, rej) => { el.onloadedmetadata = () => res(); el.onerror = () => rej(new Error('decode')) })
+    const duration = Number.isFinite(el.duration) ? el.duration : 0
+    const AC = new AudioContext()
+    const src = AC.createMediaElementSource(el)
+    const dest = AC.createMediaStreamDestination()
+    src.connect(dest) // the user hears nothing: not connected to the speakers
+    const tracks: MediaStreamTrack[] = [...dest.stream.getAudioTracks()]
+    let canvas: HTMLCanvasElement | null = null
+    let raf = 0
+    if (isVideo) {
+      const k = Math.min(1, prof.maxH / (el.videoHeight || prof.maxH))
+      const w = Math.max(2, Math.round(((el.videoWidth || 640) * k) / 2) * 2), h = Math.max(2, Math.round(((el.videoHeight || 360) * k) / 2) * 2)
+      canvas = makeCanvas(w, h)
+      const g = canvas.getContext('2d')!
+      const draw = () => { g.drawImage(el, 0, 0, w, h); raf = requestAnimationFrame(draw) }
+      draw()
+      tracks.unshift(...canvas.captureStream(30).getVideoTracks())
+    }
+    const mime = isVideo
+      ? ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].find((m) => MediaRecorder.isTypeSupported(m))
+      : ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'].find((m) => MediaRecorder.isTypeSupported(m))
+    if (!mime) throw new Error('unsupported')
+    const rec = new MediaRecorder(new MediaStream(tracks), { mimeType: mime, videoBitsPerSecond: prof.vbps, audioBitsPerSecond: prof.abps })
+    const chunks: Blob[] = []
+    rec.ondataavailable = (e) => e.data.size && chunks.push(e.data)
+    const finished = new Promise<void>((res) => { rec.onstop = () => res() })
+    rec.start(1000)
+    await AC.resume()
+    const tick = setInterval(() => { if (duration) onProgress?.(Math.min(0.98, el.currentTime / duration)) }, 400)
+    await el.play()
+    await new Promise<void>((res) => { el.onended = () => res() })
+    clearInterval(tick)
+    cancelAnimationFrame(raf)
+    rec.stop()
+    await finished
+    void AC.close()
+    const blob = new Blob(chunks, { type: mime.split(';')[0] })
+    onProgress?.(1)
+    const unchanged = blob.size >= before
+    return { blob: unchanged ? file : blob, name: file.name.replace(/\.[^.]+$/, '') + '-compressed.webm', before, after: unchanged ? before : blob.size, unchanged }
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
+export const DOC_RE = /\.(pdf|docx|pptx|xlsx|odt|ods|odp|zip|epub)$/i
+export const OFFICE_RE = /\.(docx|pptx|xlsx|odt|ods|odp|epub)$/i
+export const IMG_RE = /\.(jpe?g|png|webp|gif|bmp|avif|svg)$/i
+export const MEDIA_RE = /\.(mp4|mov|mkv|webm|m4v|avi|mp3|wav|ogg|aac|m4a|flac|opus)$/i
 
 export function compressFile(file: File, level: Level, stripMeta: boolean, onProgress?: Progress): Promise<CompressResult> {
   const n = file.name.toLowerCase()
   if (n.endsWith('.pdf')) return compressPdf(file, level, stripMeta, onProgress)
-  if (/\.(docx|pptx|xlsx|odt|ods|odp)$/.test(n)) return compressZipDocument(file, level, onProgress)
-  if (/\.(jpe?g|png|webp)$/.test(n)) return compressImage(file, level)
+  if (/\.(docx|pptx|xlsx|odt|ods|odp|zip|epub)$/.test(n)) return compressZipDocument(file, level, onProgress)
+  if (IMG_RE.test(n)) return compressImage(file, level)
+  if (MEDIA_RE.test(n)) return compressMedia(file, level, onProgress)
   return Promise.reject(new Error('unsupported'))
 }

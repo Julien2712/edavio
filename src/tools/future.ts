@@ -72,8 +72,8 @@ export const fileCompressor: ToolModule = {
   route: '/compress',
   features: [],
   acceptedMimeTypes: [],
-  status: 'coming-soon',
-  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('file-compressor') }))),
+  status: 'available',
+  component: lazy(() => import('./compress/CompressorPage').then((m) => ({ default: m.makeCompressorPage('file-compressor') }))),
 }
 
 export const imageCompressor: ToolModule = {
@@ -86,8 +86,8 @@ export const imageCompressor: ToolModule = {
   route: '/compress/images',
   features: [],
   acceptedMimeTypes: [],
-  status: 'coming-soon',
-  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('image-compressor') }))),
+  status: 'available',
+  component: lazy(() => import('./compress/CompressorPage').then((m) => ({ default: m.makeCompressorPage('image-compressor') }))),
 }
 
 export const officeCompressor: ToolModule = {
@@ -100,8 +100,8 @@ export const officeCompressor: ToolModule = {
   route: '/compress/office',
   features: [],
   acceptedMimeTypes: [],
-  status: 'coming-soon',
-  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('office-compressor') }))),
+  status: 'available',
+  component: lazy(() => import('./compress/CompressorPage').then((m) => ({ default: m.makeCompressorPage('office-compressor') }))),
 }
 
 export const archiveTool: ToolModule = {
@@ -114,8 +114,8 @@ export const archiveTool: ToolModule = {
   route: '/compress/archives',
   features: [],
   acceptedMimeTypes: [],
-  status: 'coming-soon',
-  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('archive-tool') }))),
+  status: 'available',
+  component: lazy(() => import('./compress/ArchivePage')),
 }
 
 export const mediaCompressor: ToolModule = {
@@ -128,8 +128,8 @@ export const mediaCompressor: ToolModule = {
   route: '/compress/media',
   features: [],
   acceptedMimeTypes: [],
-  status: 'coming-soon',
-  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('media-compressor') }))),
+  status: 'available',
+  component: lazy(() => import('./compress/CompressorPage').then((m) => ({ default: m.makeCompressorPage('media-compressor') }))),
 }
 
 export const imageViewer: ToolModule = {

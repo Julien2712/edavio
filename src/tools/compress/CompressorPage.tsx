@@ -5,7 +5,7 @@ import { Download, FileArchive, Loader2, Trash2, Upload, CheckCircle2 } from 'lu
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { PlannedTool } from '../planned/PlannedTool'
-import { ACCEPT, compressFile, type CompressResult, type Level } from './compressors'
+import { DOC_RE, IMG_RE, MEDIA_RE, OFFICE_RE, compressFile, compressImage, compressMedia, compressZipDocument, type CompressResult, type ImageFormat, type Level } from './compressors'
 
 interface Item {
   id: string
@@ -25,17 +25,31 @@ function save(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(a.href), 4000)
 }
 
-export default function CompressorPage() {
+interface Cfg {
+  toolId: string
+  formats: string[]
+  re: RegExp
+  hint: string
+  /** extra options */
+  image?: boolean
+  media?: boolean
+  run: (file: File, level: Level, o: { strip: boolean; format: ImageFormat; quality: number | undefined; maxPx: number | undefined }, p: (r: number) => void) => Promise<CompressResult>
+}
+
+function BatchCompressor({ cfg }: { cfg: Cfg }) {
   const { t } = useTranslation()
   const c = (k: string, o?: Record<string, unknown>) => (t as unknown as (k: string, o?: unknown) => string)(`compressor.${k}`, o)
   const [items, setItems] = useState<Item[]>([])
   const [level, setLevel] = useState<Level>('balanced')
   const [strip, setStrip] = useState(false)
+  const [format, setFormat] = useState<ImageFormat>('auto')
+  const [quality, setQuality] = useState<number | undefined>(undefined)
+  const [maxPx, setMaxPx] = useState<number | undefined>(undefined)
   const [running, setRunning] = useState(false)
   const input = useRef<HTMLInputElement>(null)
 
   const add = (files: FileList | File[]) => {
-    const ok = [...files].filter((f) => /\.(pdf|docx|pptx|xlsx|odt|ods|odp|jpe?g|png|webp)$/i.test(f.name))
+    const ok = [...files].filter((f) => cfg.re.test(f.name))
     setItems((cur) => [...cur, ...ok.map((file) => ({ id: crypto.randomUUID(), file, status: 'wait' as const, progress: 0 }))])
   }
   const patch = (id: string, p: Partial<Item>) => setItems((cur) => cur.map((i) => (i.id === id ? { ...i, ...p } : i)))
@@ -46,7 +60,7 @@ export default function CompressorPage() {
       if (it.status === 'done') continue
       patch(it.id, { status: 'busy', progress: 0 })
       try {
-        const result = await compressFile(it.file, level, strip, (p) => patch(it.id, { progress: p }))
+        const result = await cfg.run(it.file, level, { strip, format, quality, maxPx }, (p) => patch(it.id, { progress: p }))
         patch(it.id, { status: 'done', progress: 1, result })
       } catch (e) {
         console.error(e)
@@ -67,7 +81,7 @@ export default function CompressorPage() {
   }
 
   return (
-    <PlannedTool toolId="pdf-compressor" formats={['PDF', 'DOCX', 'PPTX', 'XLSX', 'ODT', 'JPG', 'PNG', 'WebP']} features={[]} hideDrop live>
+    <PlannedTool toolId={cfg.toolId} formats={cfg.formats} features={[]} hideDrop live>
       <div
         role="button" tabIndex={0} onClick={() => input.current?.click()} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && input.current?.click()}
         onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); add(e.dataTransfer.files) }}
@@ -75,9 +89,9 @@ export default function CompressorPage() {
       >
         <div className="flex size-12 items-center justify-center rounded-xl bg-[var(--color-surface-sunken)] text-[var(--color-text-tertiary)]"><Upload className="size-5" aria-hidden /></div>
         <p className="text-sm font-medium text-[var(--color-text-primary)]">{c('drop')}</p>
-        <p className="text-xs text-[var(--color-text-tertiary)]">{c('dropHint')}</p>
+        <p className="text-xs text-[var(--color-text-tertiary)]">{cfg.hint}</p>
       </div>
-      <input ref={input} type="file" multiple accept={ACCEPT} className="sr-only" tabIndex={-1} onChange={(e) => { if (e.target.files) add(e.target.files); e.target.value = '' }} />
+      <input ref={input} type="file" multiple accept={cfg.formats.map((f) => '.' + f.toLowerCase()).join(',')} className="sr-only" tabIndex={-1} onChange={(e) => { if (e.target.files) add(e.target.files); e.target.value = '' }} />
 
       <div className="mt-6 rounded-xl border border-[var(--color-border)] p-5">
         <h2 className="mb-3 text-xs font-medium uppercase tracking-widest text-[var(--color-text-tertiary)]">{c('level')}</h2>
@@ -89,7 +103,20 @@ export default function CompressorPage() {
             </button>
           ))}
         </div>
-        <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-[var(--color-text-secondary)]"><input type="checkbox" checked={strip} onChange={(e) => setStrip(e.target.checked)} />{c('stripMeta')}</label>
+        {cfg.toolId === 'pdf-compressor' && <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-[var(--color-text-secondary)]"><input type="checkbox" checked={strip} onChange={(e) => setStrip(e.target.checked)} />{c('stripMeta')}</label>}
+        {cfg.image && (
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <label className="text-xs text-[var(--color-text-secondary)]">{c('outFormat')}
+              <select value={format} onChange={(e) => setFormat(e.target.value as ImageFormat)} className="mt-1 h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-sm">
+                <option value="auto">{c('sameFormat')}</option><option value="jpeg">JPEG</option><option value="webp">WebP</option><option value="png">PNG</option>
+              </select></label>
+            <label className="text-xs text-[var(--color-text-secondary)]">{c('quality')} {quality ? `${Math.round(quality * 100)} %` : c('auto')}
+              <input type="range" min={30} max={100} value={Math.round((quality ?? 0.74) * 100)} onChange={(e) => setQuality(Number(e.target.value) / 100)} className="mt-2 w-full" /></label>
+            <label className="text-xs text-[var(--color-text-secondary)]">{c('maxSide')}
+              <input type="number" min={100} max={12000} placeholder={c('auto')} value={maxPx ?? ''} onChange={(e) => setMaxPx(e.target.value ? Number(e.target.value) : undefined)} className="mt-1 h-9 w-full rounded-md border border-[var(--color-border)] bg-transparent px-2 text-sm outline-none" /></label>
+          </div>
+        )}
+        {cfg.media && <p className="mt-4 text-xs text-[var(--color-text-tertiary)]">{c('mediaHint')}</p>}
       </div>
 
       {items.length > 0 && (
@@ -120,3 +147,23 @@ export default function CompressorPage() {
     </PlannedTool>
   )
 }
+
+const DOC_FORMATS = ['PDF', 'DOCX', 'PPTX', 'XLSX', 'ODT', 'ODS', 'ODP', 'EPUB', 'ZIP']
+const IMG_FORMATS = ['JPG', 'JPEG', 'PNG', 'WebP', 'GIF', 'BMP', 'AVIF', 'SVG']
+const MEDIA_FORMATS = ['MP4', 'MOV', 'MKV', 'WebM', 'M4V', 'MP3', 'WAV', 'OGG', 'AAC', 'M4A', 'FLAC', 'OPUS']
+
+const CONFIGS: Record<string, Cfg> = {
+  'pdf-compressor': { toolId: 'pdf-compressor', formats: [...DOC_FORMATS.filter((f) => f !== 'ZIP'), 'JPG', 'PNG', 'WebP'], re: /\.(pdf|docx|pptx|xlsx|odt|ods|odp|epub|jpe?g|png|webp)$/i, hint: 'PDF, Word, PowerPoint, Excel, images', run: (f, l, o, p) => compressFile(f, l, o.strip, p) },
+  'file-compressor': { toolId: 'file-compressor', formats: [...DOC_FORMATS, ...IMG_FORMATS, ...MEDIA_FORMATS], re: new RegExp(`${DOC_RE.source}|${IMG_RE.source}|${MEDIA_RE.source}`, 'i'), hint: 'PDF, Office, ZIP, images, audio, vidéo', image: true, media: true, run: (f, l, o, p) => (IMG_RE.test(f.name) ? compressImage(f, l, { format: o.format, quality: o.quality, maxPx: o.maxPx }) : compressFile(f, l, o.strip, p)) },
+  'office-compressor': { toolId: 'office-compressor', formats: ['DOCX', 'PPTX', 'XLSX', 'ODT', 'ODS', 'ODP', 'EPUB'], re: OFFICE_RE, hint: 'Word, Excel, PowerPoint, OpenDocument', run: (f, l, _o, p) => compressZipDocument(f, l, p) },
+  'image-compressor': { toolId: 'image-compressor', formats: IMG_FORMATS, re: IMG_RE, hint: 'JPG, PNG, WebP, GIF, BMP, AVIF, SVG', image: true, run: (f, l, o) => compressImage(f, l, { format: o.format, quality: o.quality, maxPx: o.maxPx }) },
+  'media-compressor': { toolId: 'media-compressor', formats: MEDIA_FORMATS, re: MEDIA_RE, hint: 'MP4, MOV, MKV, WebM, MP3, WAV, OGG…', media: true, run: (f, l, _o, p) => compressMedia(f, l, p) },
+}
+
+export function makeCompressorPage(id: string) {
+  return function Page() {
+    return <BatchCompressor cfg={CONFIGS[id]!} />
+  }
+}
+
+export default makeCompressorPage('pdf-compressor')

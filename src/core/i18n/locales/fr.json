@@ -994,6 +994,30 @@
     "remove": "Retirer",
     "noGain": "déjà optimisé, fichier d'origine conservé",
     "error": "Impossible de compresser ce fichier",
-    "total": "Total : {{before}} → {{after}} (−{{pct}} %)"
+    "total": "Total : {{before}} → {{after}} (−{{pct}} %)",
+    "outFormat": "Format de sortie",
+    "sameFormat": "Même format",
+    "quality": "Qualité",
+    "auto": "auto",
+    "maxSide": "Plus grand côté (px)",
+    "mediaHint": "Audio et vidéo sont ré-encodés en WebM, en temps réel : comptez la durée du média."
+  },
+  "archive": {
+    "create": "Créer une archive",
+    "extract": "Extraire une archive",
+    "dropCreate": "Déposez les fichiers à archiver",
+    "dropExtract": "Déposez une archive à extraire",
+    "hint": "ZIP, TAR.GZ, TGZ, TAR, GZ · tout reste sur votre appareil",
+    "addFolder": "Ajouter un dossier",
+    "format": "Format",
+    "level": "Compression",
+    "fast": "Rapide",
+    "normal": "Normale",
+    "best": "Maximale",
+    "build": "Créer et télécharger",
+    "note": "7Z et RAR ne sont pas encore pris en charge ; la protection par mot de passe non plus.",
+    "empty": "Archive vide",
+    "extractError": "Impossible de lire cette archive",
+    "createError": "Impossible de créer l'archive"
   }
 }
