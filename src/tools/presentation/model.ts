@@ -122,8 +122,20 @@ export interface TableEl extends BaseEl {
 
 export type SlideEl = ShapeEl | ImageEl | TableEl
 
+export type TransitionType = 'none' | 'fade' | 'push-left' | 'push-right' | 'push-up' | 'push-down' | 'cover-left' | 'cover-up' | 'wipe-left' | 'wipe-down' | 'zoom-in' | 'zoom-out' | 'flip' | 'circle'
+export const TRANSITIONS: TransitionType[] = ['none', 'fade', 'push-left', 'push-right', 'push-up', 'push-down', 'cover-left', 'cover-up', 'wipe-left', 'wipe-down', 'zoom-in', 'zoom-out', 'flip', 'circle']
+
+export interface Transition {
+  type: TransitionType
+  /** seconds */
+  duration: number
+  /** auto-advance to the next slide after N seconds (null = on click only) */
+  after?: number | null
+}
+
 export interface Slide {
   id: string
+  transition?: Transition
   bg: string
   bgImage?: string
   elements: SlideEl[]

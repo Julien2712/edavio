@@ -174,7 +174,30 @@
         "parallelogram": "Parallélogramme",
         "basic": "Basiques",
         "lines": "Lignes",
-        "more": "Autres formes"
+        "more": "Autres formes",
+        "round-rect": "Rectangle arrondi",
+        "pill": "Capsule",
+        "semicircle": "Demi-cercle",
+        "quarter-circle": "Quart de cercle",
+        "heart": "Cœur",
+        "moon": "Lune",
+        "cloud": "Nuage",
+        "lightning": "Éclair",
+        "checkmark": "Coche",
+        "x-mark": "Croix (X)",
+        "speech": "Bulle",
+        "star6": "Étoile 6 branches",
+        "star8": "Étoile 8 branches",
+        "heptagon": "Heptagone",
+        "decagon": "Décagone",
+        "arrow-left": "Flèche gauche",
+        "arrow-up": "Flèche haut",
+        "arrow-down": "Flèche bas",
+        "double-arrow": "Flèche double",
+        "home-plate": "Pentagone fléché",
+        "banner": "Bannière",
+        "symbols": "Symboles",
+        "arrows": "Flèches"
       },
       "mirrorPage": "Miroir (inverser gauche/droite)"
     },
@@ -248,8 +271,8 @@
       "description": "Ouvrez et parcourez vos documents dans une vue de lecture confortable."
     },
     "pdfCompressor": {
-      "name": "Compression de PDF",
-      "description": "Réduisez le poids de vos PDF sans quitter votre ordinateur."
+      "name": "Compresser des documents",
+      "description": "Réduisez PDF, Word, PowerPoint, Excel et images sans perte visible."
     },
     "imageConverter": {
       "name": "Convertir des images",
@@ -258,6 +281,50 @@
     "documentConverter": {
       "name": "Convertir des documents",
       "description": "Transformez vos documents : PDF vers Word, Word vers PDF, etc."
+    },
+    "fileCompressor": {
+      "name": "Compresser tout type de fichier",
+      "description": "PDF, images, Office, archives, audio et vidéo : bientôt tous les formats courants."
+    },
+    "imageCompressor": {
+      "name": "Compresser des images",
+      "description": "JPG, PNG, WebP, AVIF, GIF, SVG, TIFF…"
+    },
+    "officeCompressor": {
+      "name": "Compresser Word, Excel, PowerPoint",
+      "description": "Allégez vos documents Office et OpenDocument."
+    },
+    "archiveTool": {
+      "name": "Archives ZIP et 7Z",
+      "description": "Créez et extrayez des archives : ZIP, 7Z, TAR, GZ, RAR."
+    },
+    "mediaCompressor": {
+      "name": "Compresser audio et vidéo",
+      "description": "MP4, MOV, MKV, WebM, MP3, WAV et plus."
+    },
+    "imageViewer": {
+      "name": "Visionneuse d'images",
+      "description": "Ouvrez PNG, JPG, WebP, GIF, SVG, TIFF, HEIC…"
+    },
+    "textReader": {
+      "name": "Lecteur de texte et code",
+      "description": "TXT, Markdown, HTML, JSON, XML, CSV avec coloration."
+    },
+    "ebookReader": {
+      "name": "Lecteur de livres numériques",
+      "description": "EPUB, MOBI, AZW3, FB2, CBZ, CBR."
+    },
+    "pdfImages": {
+      "name": "PDF ↔ Images",
+      "description": "Transformez un PDF en images, ou des images en PDF."
+    },
+    "spreadsheetConverter": {
+      "name": "Convertir des tableurs",
+      "description": "XLSX, XLS, CSV, ODS, JSON, HTML et PDF."
+    },
+    "mediaConverter": {
+      "name": "Convertir audio et vidéo",
+      "description": "MP4, WebM, GIF, MP3, WAV, OGG…"
     }
   },
   "notFound": {
@@ -375,6 +442,74 @@
         "PDF vers Word, images ou texte",
         "Texte, Markdown et HTML vers PDF"
       ]
+    },
+    "generic": {
+      "file-compressor": [
+        "Un seul outil pour tous les formats courants",
+        "Aperçu du gain avant d'enregistrer",
+        "Traitement de plusieurs fichiers à la fois"
+      ],
+      "image-compressor": [
+        "JPG, PNG, WebP, AVIF, GIF, SVG, TIFF, BMP, HEIC",
+        "Compression sans perte visible",
+        "Redimensionnement et lot"
+      ],
+      "office-compressor": [
+        "Word, Excel, PowerPoint, ODT, ODS, ODP",
+        "Réduction des images intégrées",
+        "Suppression des données cachées"
+      ],
+      "archive-tool": [
+        "Créer des archives ZIP, 7Z, TAR.GZ",
+        "Extraire ZIP, 7Z, TAR, GZ, RAR",
+        "Mot de passe et dossiers"
+      ],
+      "media-compressor": [
+        "Vidéo MP4, MOV, MKV, WebM, AVI",
+        "Audio MP3, WAV, AAC, OGG, FLAC",
+        "Choix de la qualité et de la résolution"
+      ],
+      "image-viewer": [
+        "Ouvrir PNG, JPG, WebP, GIF, SVG, TIFF, HEIC",
+        "Zoom, rotation et diaporama",
+        "Informations EXIF"
+      ],
+      "text-reader": [
+        "TXT, Markdown, HTML, JSON, XML, CSV, LOG",
+        "Coloration syntaxique et recherche",
+        "Aperçu Markdown rendu"
+      ],
+      "ebook-reader": [
+        "EPUB, MOBI, AZW3, FB2, CBZ, CBR",
+        "Table des matières et marque-pages",
+        "Mode nuit et police ajustable"
+      ],
+      "pdf-images": [
+        "PDF vers PNG, JPG, WebP",
+        "Images vers un seul PDF",
+        "Choix de la résolution"
+      ],
+      "spreadsheet-converter": [
+        "XLSX, XLS, CSV, TSV, ODS, JSON, HTML",
+        "Export en PDF",
+        "Choix des feuilles"
+      ],
+      "media-converter": [
+        "MP4, WebM, GIF, MP3, WAV, OGG",
+        "Extraction audio d'une vidéo",
+        "Qualité et résolution réglables"
+      ]
+    },
+    "opt": {
+      "batch": "Traitement par lot",
+      "keepFormat": "Conserver le format d'origine",
+      "stripMeta": "Supprimer les métadonnées",
+      "downscale": "Réduire la résolution des images",
+      "resize": "Redimensionner",
+      "password": "Protéger par mot de passe",
+      "keepFolders": "Conserver les dossiers",
+      "mergeOne": "Regrouper dans un seul fichier",
+      "allSheets": "Toutes les feuilles"
     }
   },
   "slides": {
@@ -507,7 +642,8 @@
       "home": "Accueil",
       "insert": "Insertion",
       "design": "Conception",
-      "view": "Affichage"
+      "view": "Affichage",
+      "transition": "Transitions"
     },
     "theme": {
       "light": "Clair",
@@ -542,6 +678,25 @@
       "star4": "Étoile à 4 branches",
       "plus": "Croix",
       "line": "Ligne"
+    },
+    "trDuration": "Durée (s)",
+    "trAfter": "Après (s)",
+    "trPreview": "Aperçu",
+    "tr": {
+      "none": "Aucune",
+      "fade": "Fondu",
+      "push-left": "Pousser ←",
+      "push-right": "Pousser →",
+      "push-up": "Pousser ↑",
+      "push-down": "Pousser ↓",
+      "cover-left": "Recouvrir ←",
+      "cover-up": "Recouvrir ↑",
+      "wipe-left": "Balayage →",
+      "wipe-down": "Balayage ↓",
+      "zoom-in": "Zoom avant",
+      "zoom-out": "Zoom arrière",
+      "flip": "Retourner",
+      "circle": "Cercle"
     }
   },
   "workspace": {
@@ -784,5 +939,25 @@
     "rowsCount": "Nombre de lignes",
     "colsCount": "Nombre de colonnes",
     "sizeHint": "Le minimum correspond à la dernière cellule utilisée."
+  },
+  "compressor": {
+    "drop": "Déposez vos fichiers ici ou cliquez pour parcourir",
+    "dropHint": "PDF, Word, PowerPoint, Excel, images · tout reste sur votre appareil",
+    "level": "Niveau de compression",
+    "light": "Léger",
+    "lightHint": "Qualité quasi identique",
+    "balanced": "Recommandé",
+    "balancedHint": "Gros gain, indiscernable à l'œil",
+    "max": "Maximum",
+    "maxHint": "Fichier le plus petit",
+    "stripMeta": "Supprimer les métadonnées (PDF)",
+    "run": "Compresser",
+    "running": "Compression…",
+    "download": "Télécharger",
+    "downloadZip": "Tout télécharger (.zip)",
+    "remove": "Retirer",
+    "noGain": "déjà optimisé, fichier d'origine conservé",
+    "error": "Impossible de compresser ce fichier",
+    "total": "Total : {{before}} → {{after}} (−{{pct}} %)"
   }
 }

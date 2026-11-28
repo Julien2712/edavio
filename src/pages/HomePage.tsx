@@ -1,3 +1,4 @@
+import { ToolRegistry } from '@/tools'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import {
@@ -166,6 +167,18 @@ const SECTIONS: HomeSection[] = [
     ],
   },
 ]
+
+const SECTION_ICON_BG: Record<string, string> = {
+  read: 'bg-sky-100 text-sky-600 dark:bg-sky-900/60 dark:text-sky-400',
+  compress: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/60 dark:text-emerald-400',
+  convert: 'bg-orange-100 text-orange-600 dark:bg-orange-900/60 dark:text-orange-400',
+}
+for (const sec of SECTIONS) {
+  if (!SECTION_ICON_BG[sec.id]) continue
+  sec.tools = ToolRegistry.list()
+    .filter((tool) => tool.section === sec.id && tool.component)
+    .map((tool) => ({ nameKey: tool.nameKey, descriptionKey: tool.descriptionKey, icon: tool.icon, iconBg: SECTION_ICON_BG[sec.id]!, route: tool.route, available: tool.status === 'available' }))
+}
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 

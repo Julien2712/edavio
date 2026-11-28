@@ -4,6 +4,17 @@ import { pdfEditor } from './pdf'
 import { presentationEditor } from './presentation'
 import { spreadsheetEditor } from './spreadsheet'
 import {
+  fileCompressor,
+  imageCompressor,
+  officeCompressor,
+  archiveTool,
+  mediaCompressor,
+  imageViewer,
+  textReader,
+  ebookReader,
+  pdfImages,
+  spreadsheetConverter,
+  mediaConverter,
   documentConverter,
   documentReader,
   imageConverter,
@@ -16,8 +27,19 @@ ToolRegistry.register(pdfEditor)
   .register(spreadsheetEditor)
   .register(presentationEditor)
   .register(documentReader)
+  .register(imageViewer)
+  .register(textReader)
+  .register(ebookReader)
   .register(pdfCompressor)
+  .register(fileCompressor)
+  .register(imageCompressor)
+  .register(officeCompressor)
+  .register(archiveTool)
+  .register(mediaCompressor)
   .register(imageConverter)
   .register(documentConverter)
+  .register(pdfImages)
+  .register(spreadsheetConverter)
+  .register(mediaConverter)
 
 export { ToolRegistry }

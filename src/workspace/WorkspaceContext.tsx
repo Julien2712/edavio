@@ -17,6 +17,8 @@ export interface Tab {
   /** An editor with loaded content: closing it asks for confirmation */
   hasContent: boolean
   init: TabInit | null
+  /** where the tab was opened from: the Create or the Edit section */
+  origin: 'create' | 'edit'
 }
 
 type Saver = () => Promise<ProjectFile> | ProjectFile
@@ -68,7 +70,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const open = useCallback((route: string, init: TabInit | null = null) => {
     const id = `tab-${++counter}`
-    setTabsSync([...tabsRef.current, { id, route, title: '', hasContent: false, init }])
+    setTabsSync([...tabsRef.current, { id, route, title: '', hasContent: false, init, origin: init?.newBlank ? 'create' : 'edit' }])
     setActive(id)
     return id
   }, [setTabsSync, setActive])

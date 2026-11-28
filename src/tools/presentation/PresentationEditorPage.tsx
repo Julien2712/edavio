@@ -20,7 +20,7 @@ import { ColorMenu, FontPicker, Menu, MenuItem, MenuTitle, Sep, SizeField, Tb } 
 import { domToParas, exec, execFontSize, formatAtSelection, formatOfEl, mapRuns, selectedBlocks, type Format } from './richText'
 import { importPptx } from './pptxImport'
 import { exportPptx } from './pptxExport'
-import { DEFAULT_FONT } from './model'
+import { DEFAULT_FONT, TRANSITIONS } from './model'
 import { useTabBridge } from '@/workspace/useTabBridge'
 import { isProjectFile, type ProjectFile } from '@/workspace/project'
 
@@ -78,7 +78,7 @@ export default function PresentationEditorPage() {
   const [sel, setSel] = useState<string[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [tool, setTool] = useState<Tool>(null)
-  const [tab, setTab] = useState<'home' | 'insert' | 'design' | 'view'>('home')
+  const [tab, setTab] = useState<'home' | 'insert' | 'design' | 'transition' | 'view'>('home')
   const [fit, setFit] = useState(true)
   const [zoom, setZoom] = useState(100)
   const [avail, setAvail] = useState({ w: 800, h: 500 })
@@ -969,7 +969,7 @@ export default function PresentationEditorPage() {
       {/* ribbon */}
       <div className="shrink-0 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
         <div className="flex h-8 items-center gap-1 px-3" role="tablist">
-          {(['home', 'insert', 'design', 'view'] as const).map((k) => (
+          {(['home', 'insert', 'design', 'transition', 'view'] as const).map((k) => (
             <button key={k} role="tab" aria-selected={tab === k} type="button" onClick={() => setTab(k)}
               className={cn('h-8 rounded-t-md px-3 text-xs font-medium', tab === k ? 'border-b-2 border-[var(--color-accent)] text-[var(--color-accent)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]')}>
               {s(`tab.${k}`)}
@@ -1073,6 +1073,28 @@ export default function PresentationEditorPage() {
                   </div>
                 )}
               </Menu>
+            </div>
+          )}
+          {tab === 'transition' && (
+            <div className="flex w-max flex-nowrap items-center gap-1 pt-2">
+              {TRANSITIONS.map((tt) => {
+                const on = (slide.transition?.type ?? 'none') === tt
+                return (
+                  <button key={tt} type="button" title={s(`tr.${tt}`)} onClick={() => patchSlide((sl) => ({ ...sl, transition: { duration: 0.6, ...sl.transition, type: tt } }))}
+                    className={cn('flex h-14 w-[78px] shrink-0 flex-col items-center justify-center gap-1 rounded-md border text-[11px]', on ? 'border-[var(--color-accent)] bg-[var(--color-accent-light)] text-[var(--color-accent)]' : 'border-[var(--color-border)] hover:border-[var(--color-accent)]')}>
+                    <span className="relative h-5 w-8 overflow-hidden rounded-sm border border-current/40"><span className="absolute inset-0 bg-current opacity-25" /><span className="absolute inset-y-0 left-0 w-1/2 bg-current opacity-60" /></span>
+                    <span className="max-w-full truncate px-1">{s(`tr.${tt}`)}</span>
+                  </button>
+                )
+              })}
+              <Sep />
+              <label className="flex flex-col gap-0.5 text-[11px] text-[var(--color-text-secondary)]">{s('trDuration')}
+                <input type="number" min={0.1} max={5} step={0.1} value={slide.transition?.duration ?? 0.6} onChange={(e) => patchSlide((sl) => ({ ...sl, transition: { type: 'fade', ...sl.transition, duration: Math.max(0.1, Math.min(5, Number(e.target.value) || 0.6)) } }))} className="h-7 w-20 rounded border border-[var(--color-border)] bg-transparent px-2 text-xs outline-none" /></label>
+              <label className="flex flex-col gap-0.5 text-[11px] text-[var(--color-text-secondary)]">{s('trAfter')}
+                <input type="number" min={0} max={600} step={1} placeholder="—" value={slide.transition?.after ?? ''} onChange={(e) => patchSlide((sl) => ({ ...sl, transition: { type: 'none', duration: 0.6, ...sl.transition, after: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) } }))} className="h-7 w-20 rounded border border-[var(--color-border)] bg-transparent px-2 text-xs outline-none" /></label>
+              <Sep />
+              <Button variant="ghost" size="xs" onClick={() => commit((sl) => sl.map((x) => ({ ...x, transition: slide.transition ?? { type: 'none', duration: 0.6 } })))} className="mx-1"><Palette className="size-3.5" />{s('applyAll')}</Button>
+              <Button variant="secondary" size="xs" onClick={() => setPresenting(Math.max(0, doc.slides.findIndex((x) => x.id === slide.id) - 1))}><Play className="size-3.5" />{s('trPreview')}</Button>
             </div>
           )}
           {tab === 'view' && (
@@ -1274,17 +1296,26 @@ function TableTools({ s, el, patch }: { s: (k: string) => string; el: TableEl; p
 
 function Presenter({ deck, start, onClose }: { deck: Doc; start: number; onClose: () => void }) {
   const [i, setI] = useState(start)
+  const [prev, setPrev] = useState<number | null>(null)
+  const iRef = useRef(start)
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight })
   const root = useRef<HTMLDivElement>(null)
+  const go = (to: number) => {
+    const n = Math.max(0, Math.min(deck.slides.length - 1, to))
+    if (n === iRef.current) return
+    setPrev(iRef.current)
+    iRef.current = n
+    setI(n)
+  }
   useEffect(() => {
     void root.current?.requestFullscreen?.().catch(() => undefined)
     const onFs = () => { if (!document.fullscreenElement) onClose() }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
-      else if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); setI((x) => Math.min(x + 1, deck.slides.length - 1)) }
-      else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); setI((x) => Math.max(x - 1, 0)) }
-      else if (e.key === 'Home') setI(0)
-      else if (e.key === 'End') setI(deck.slides.length - 1)
+      else if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); go(iRef.current + 1) }
+      else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); go(iRef.current - 1) }
+      else if (e.key === 'Home') go(0)
+      else if (e.key === 'End') go(deck.slides.length - 1)
     }
     const onResize = () => setSize({ w: window.innerWidth, h: window.innerHeight })
     document.addEventListener('fullscreenchange', onFs)
@@ -1298,19 +1329,76 @@ function Presenter({ deck, start, onClose }: { deck: Doc; start: number; onClose
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  const cur = deck.slides[i]!
+  const tr = cur.transition ?? { type: 'none' as const, duration: 0.6 }
+  // end of the animation: drop the previous slide
+  useEffect(() => {
+    if (prev === null) return
+    const id = setTimeout(() => setPrev(null), tr.type === 'none' ? 0 : tr.duration * 1000 + 50)
+    return () => clearTimeout(id)
+  }, [prev, i, tr.type, tr.duration])
+  // auto-advance
+  useEffect(() => {
+    if (tr.after == null || i >= deck.slides.length - 1) return
+    const id = setTimeout(() => go(i + 1), (tr.after + (tr.type === 'none' ? 0 : tr.duration)) * 1000)
+    return () => clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i, tr.after, tr.duration, tr.type])
   const k = Math.min(size.w / deck.w, size.h / deck.h)
+  const anim = prev !== null && tr.type !== 'none' ? tr : null
+  const d = anim ? `${anim.duration}s` : '0s'
+  const layer = (idx: number, role: 'in' | 'out') => (
+    <div key={`${idx}-${role}`} className={anim ? `xt-${anim.type}-${role}` : undefined} style={{ position: 'absolute', inset: 0, animationDuration: d, animationFillMode: 'both', animationTimingFunction: 'ease-in-out', backfaceVisibility: 'hidden' }}>
+      <div style={{ width: deck.w, height: deck.h, transform: `scale(${k})`, transformOrigin: 'top left' }}>
+        <SlideView slide={deck.slides[idx]!} w={deck.w} h={deck.h} />
+      </div>
+    </div>
+  )
   return (
-    <div ref={root} className="fixed inset-0 z-[100] flex items-center justify-center bg-black" onClick={() => setI((x) => Math.min(x + 1, deck.slides.length - 1))}>
-      <div style={{ width: deck.w * k, height: deck.h * k }}>
-        <div style={{ width: deck.w, height: deck.h, transform: `scale(${k})`, transformOrigin: 'top left' }}>
-          <SlideView slide={deck.slides[i]!} w={deck.w} h={deck.h} />
-        </div>
+    <div ref={root} className="fixed inset-0 z-[100] flex items-center justify-center bg-black" onClick={() => go(iRef.current + 1)}>
+      <style>{TRANSITION_CSS}</style>
+      <div style={{ width: deck.w * k, height: deck.h * k, position: 'relative', overflow: 'hidden', perspective: 1600 }}>
+        {prev !== null && prev !== i && layer(prev, 'out')}
+        {layer(i, 'in')}
       </div>
       <button type="button" aria-label="Close" onClick={(e) => { e.stopPropagation(); onClose() }} className="absolute right-3 top-3 rounded-full bg-white/10 p-2 text-white/70 hover:bg-white/20"><X size={18} /></button>
       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-xs text-white/50">{i + 1} / {deck.slides.length}</div>
     </div>
   )
 }
+
+const TRANSITION_CSS = `
+@keyframes xt-fade-in{from{opacity:0}to{opacity:1}}
+@keyframes xt-push-l-in{from{transform:translateX(100%)}to{transform:none}}
+@keyframes xt-push-l-out{from{transform:none}to{transform:translateX(-100%)}}
+@keyframes xt-push-r-in{from{transform:translateX(-100%)}to{transform:none}}
+@keyframes xt-push-r-out{from{transform:none}to{transform:translateX(100%)}}
+@keyframes xt-push-u-in{from{transform:translateY(100%)}to{transform:none}}
+@keyframes xt-push-u-out{from{transform:none}to{transform:translateY(-100%)}}
+@keyframes xt-push-d-in{from{transform:translateY(-100%)}to{transform:none}}
+@keyframes xt-push-d-out{from{transform:none}to{transform:translateY(100%)}}
+@keyframes xt-wipe-l-in{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes xt-wipe-d-in{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes xt-zoom-in-in{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
+@keyframes xt-zoom-out-out{from{transform:none;opacity:1}to{transform:scale(1.6);opacity:0}}
+@keyframes xt-flip-in{from{transform:rotateY(-90deg)}to{transform:none}}
+@keyframes xt-flip-out{from{transform:none}to{transform:rotateY(90deg)}}
+@keyframes xt-circle-in{from{clip-path:circle(0% at 50% 50%)}to{clip-path:circle(75% at 50% 50%)}}
+.xt-fade-in{animation-name:xt-fade-in}
+.xt-push-left-in{animation-name:xt-push-l-in}.xt-push-left-out{animation-name:xt-push-l-out}
+.xt-push-right-in{animation-name:xt-push-r-in}.xt-push-right-out{animation-name:xt-push-r-out}
+.xt-push-up-in{animation-name:xt-push-u-in}.xt-push-up-out{animation-name:xt-push-u-out}
+.xt-push-down-in{animation-name:xt-push-d-in}.xt-push-down-out{animation-name:xt-push-d-out}
+.xt-cover-left-in{animation-name:xt-push-l-in;z-index:2}
+.xt-cover-up-in{animation-name:xt-push-u-in;z-index:2}
+.xt-wipe-left-in{animation-name:xt-wipe-l-in;z-index:2}
+.xt-wipe-down-in{animation-name:xt-wipe-d-in;z-index:2}
+.xt-zoom-in-in{animation-name:xt-zoom-in-in}
+.xt-zoom-out-out{animation-name:xt-zoom-out-out;z-index:2}
+.xt-zoom-out-in{animation-name:xt-fade-in}
+.xt-flip-in{animation-name:xt-flip-in}.xt-flip-out{animation-name:xt-flip-out}
+.xt-circle-in{animation-name:xt-circle-in;z-index:2}
+`
 
 void ElementView
 void PX_PER_PT

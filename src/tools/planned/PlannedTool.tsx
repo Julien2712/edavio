@@ -12,16 +12,20 @@ export function PlannedTool({
   features,
   children,
   hideDrop,
+  live,
 }: {
   toolId: string
   formats: string[]
   features: string[]
   children?: ReactNode
   hideDrop?: boolean
+  /** the tool is functional: no "coming soon" badge, notice or roadmap */
+  live?: boolean
 }) {
   const { t } = useTranslation()
   const tool = ToolRegistry.get(toolId)
   if (!tool) return null
+  const siblings = ToolRegistry.list().filter((x) => x.section === tool.section && x.component)
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
@@ -33,6 +37,17 @@ export function PlannedTool({
         {t('planned.back')}
       </Link>
 
+      {siblings.length > 1 && (
+        <nav className="mb-6 flex flex-wrap gap-1.5" aria-label={t(`sections.${tool.section}`)}>
+          {siblings.map((x) => (
+            <Link key={x.id} to={x.route} className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors', x.id === tool.id ? 'border-[var(--color-accent)] bg-[var(--color-accent-light)] font-medium text-[var(--color-accent)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]')}>
+              <x.icon className="size-3.5" aria-hidden />
+              {t(x.nameKey)}
+            </Link>
+          ))}
+        </nav>
+      )}
+
       <div className="flex items-start gap-4">
         <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-accent-light)] text-[var(--color-accent)]">
           <tool.icon className="size-5" aria-hidden />
@@ -42,9 +57,11 @@ export function PlannedTool({
             <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-text-primary)]">
               {t(tool.nameKey)}
             </h1>
-            <span className="rounded-full bg-[var(--color-surface-sunken)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--color-text-secondary)]">
-              {t('planned.badge')}
-            </span>
+            {!live && (
+              <span className="rounded-full bg-[var(--color-surface-sunken)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--color-text-secondary)]">
+                {t('planned.badge')}
+              </span>
+            )}
           </div>
           <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t(tool.descriptionKey)}</p>
         </div>
@@ -75,6 +92,7 @@ export function PlannedTool({
 
       {children}
 
+      {!live && (
       <div className="mt-8 rounded-xl border border-[var(--color-border)] p-5">
         <h2 className="mb-3 text-xs font-medium uppercase tracking-widest text-[var(--color-text-tertiary)]">
           {t('planned.planned')}
@@ -91,6 +109,7 @@ export function PlannedTool({
           {t('planned.notice')}
         </p>
       </div>
+      )}
     </div>
   )
 }

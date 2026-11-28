@@ -1,3 +1,4 @@
+import { useWorkspace } from '@/workspace/WorkspaceContext'
 import { Home, Lock } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation } from 'react-router-dom'
@@ -7,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { LanguageSwitcher } from './LanguageSwitcher'
 
 export function Header() {
+  const ws = useWorkspace()
   const { t } = useTranslation()
   const { pathname } = useLocation()
 
@@ -35,10 +37,15 @@ export function Header() {
             const first = tools[0]
             if (section !== 'create' && !first) return null
             const to = section === 'create' ? '/create' : section === 'edit' ? '/edit' : first!.route
+            // On an editor route, the section is the one the open tab came from (Create or Edit)
+            const onEditor = ToolRegistry.list().some((tool) => tool.section === 'edit' && pathname.startsWith(tool.route))
+            const origin = ws.tabs.find((x) => x.id === ws.activeId)?.origin ?? 'edit'
             const active =
-              (section === 'create' && pathname.startsWith('/create')) ||
-              (section === 'edit' && pathname.startsWith('/edit')) ||
-              tools.some((tool) => pathname.startsWith(tool.route))
+              section === 'create' || section === 'edit'
+                ? onEditor
+                  ? origin === section
+                  : pathname.startsWith(section === 'create' ? '/create' : '/edit')
+                : tools.some((tool) => pathname.startsWith(tool.route))
             return (
               <Link
                 key={section}

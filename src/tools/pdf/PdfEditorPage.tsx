@@ -1641,7 +1641,9 @@ export default function PdfEditorPage() {
           const SHAPE_GROUPS: { label: string; items: string[] }[] = [
             { label: t('tools.pdfEditor.shapes.lines'), items: ['line', 'arrow'] },
             { label: t('tools.pdfEditor.shapes.basic'), items: ['rect', 'ellipse', 'triangle', 'right-triangle', 'diamond'] },
-            { label: t('tools.pdfEditor.shapes.more'), items: ['pentagon', 'hexagon', 'octagon', 'star', 'star4', 'cross', 'block-arrow', 'chevron', 'trapezoid', 'parallelogram'] },
+            { label: t('tools.pdfEditor.shapes.more'), items: ['round-rect', 'pill', 'semicircle', 'quarter-circle', 'pentagon', 'hexagon', 'heptagon', 'octagon', 'decagon', 'trapezoid', 'parallelogram'] },
+            { label: t('tools.pdfEditor.shapes.symbols'), items: ['star', 'star4', 'star6', 'star8', 'heart', 'moon', 'cloud', 'lightning', 'checkmark', 'x-mark', 'cross', 'speech', 'banner'] },
+            { label: t('tools.pdfEditor.shapes.arrows'), items: ['block-arrow', 'arrow-left', 'arrow-up', 'arrow-down', 'double-arrow', 'chevron', 'home-plate'] },
           ]
           const shapeTools: EditorTool[] = ['rect', 'ellipse', 'polygon', 'line', 'arrow']
           const shapeActive = shapeTools.includes(tool)

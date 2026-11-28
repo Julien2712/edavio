@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { BookOpen, FileOutput, Images, Minimize2 } from 'lucide-react'
+import { BookOpen, BookText, FileArchive, FileCode, FileImage, FileOutput, Files, Film, Image, Images, Minimize2, Music, ScanText, Table2 } from 'lucide-react'
 import type { ToolModule } from '@/core/tools/types'
 
 /** Placeholders so the shell already shows the platform roadmap. */
@@ -30,8 +30,8 @@ export const pdfCompressor: ToolModule = {
   route: '/compress',
   features: [],
   acceptedMimeTypes: ['application/pdf'],
-  status: 'coming-soon',
-  component: lazy(() => import('./planned/CompressPage')),
+  status: 'available',
+  component: lazy(() => import('./compress/CompressorPage')),
 }
 
 export const imageConverter: ToolModule = {
@@ -60,4 +60,158 @@ export const documentConverter: ToolModule = {
   acceptedMimeTypes: ['application/pdf'],
   status: 'coming-soon',
   component: lazy(() => import('./planned/DocumentConvertPage')),
+}
+
+export const fileCompressor: ToolModule = {
+  id: 'file-compressor',
+  section: 'compress',
+  category: 'compression',
+  nameKey: 'tools.fileCompressor.name',
+  descriptionKey: 'tools.fileCompressor.description',
+  icon: Minimize2,
+  route: '/compress',
+  features: [],
+  acceptedMimeTypes: [],
+  status: 'coming-soon',
+  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('file-compressor') }))),
+}
+
+export const imageCompressor: ToolModule = {
+  id: 'image-compressor',
+  section: 'compress',
+  category: 'compression',
+  nameKey: 'tools.imageCompressor.name',
+  descriptionKey: 'tools.imageCompressor.description',
+  icon: FileImage,
+  route: '/compress/images',
+  features: [],
+  acceptedMimeTypes: [],
+  status: 'coming-soon',
+  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('image-compressor') }))),
+}
+
+export const officeCompressor: ToolModule = {
+  id: 'office-compressor',
+  section: 'compress',
+  category: 'compression',
+  nameKey: 'tools.officeCompressor.name',
+  descriptionKey: 'tools.officeCompressor.description',
+  icon: Files,
+  route: '/compress/office',
+  features: [],
+  acceptedMimeTypes: [],
+  status: 'coming-soon',
+  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('office-compressor') }))),
+}
+
+export const archiveTool: ToolModule = {
+  id: 'archive-tool',
+  section: 'compress',
+  category: 'compression',
+  nameKey: 'tools.archiveTool.name',
+  descriptionKey: 'tools.archiveTool.description',
+  icon: FileArchive,
+  route: '/compress/archives',
+  features: [],
+  acceptedMimeTypes: [],
+  status: 'coming-soon',
+  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('archive-tool') }))),
+}
+
+export const mediaCompressor: ToolModule = {
+  id: 'media-compressor',
+  section: 'compress',
+  category: 'compression',
+  nameKey: 'tools.mediaCompressor.name',
+  descriptionKey: 'tools.mediaCompressor.description',
+  icon: Film,
+  route: '/compress/media',
+  features: [],
+  acceptedMimeTypes: [],
+  status: 'coming-soon',
+  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('media-compressor') }))),
+}
+
+export const imageViewer: ToolModule = {
+  id: 'image-viewer',
+  section: 'read',
+  category: 'reader',
+  nameKey: 'tools.imageViewer.name',
+  descriptionKey: 'tools.imageViewer.description',
+  icon: Image,
+  route: '/read/images',
+  features: [],
+  acceptedMimeTypes: [],
+  status: 'coming-soon',
+  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('image-viewer') }))),
+}
+
+export const textReader: ToolModule = {
+  id: 'text-reader',
+  section: 'read',
+  category: 'reader',
+  nameKey: 'tools.textReader.name',
+  descriptionKey: 'tools.textReader.description',
+  icon: FileCode,
+  route: '/read/text',
+  features: [],
+  acceptedMimeTypes: [],
+  status: 'coming-soon',
+  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('text-reader') }))),
+}
+
+export const ebookReader: ToolModule = {
+  id: 'ebook-reader',
+  section: 'read',
+  category: 'reader',
+  nameKey: 'tools.ebookReader.name',
+  descriptionKey: 'tools.ebookReader.description',
+  icon: BookText,
+  route: '/read/ebooks',
+  features: [],
+  acceptedMimeTypes: [],
+  status: 'coming-soon',
+  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('ebook-reader') }))),
+}
+
+export const pdfImages: ToolModule = {
+  id: 'pdf-images',
+  section: 'convert',
+  category: 'conversion',
+  nameKey: 'tools.pdfImages.name',
+  descriptionKey: 'tools.pdfImages.description',
+  icon: ScanText,
+  route: '/convert/pdf-images',
+  features: [],
+  acceptedMimeTypes: [],
+  status: 'coming-soon',
+  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('pdf-images') }))),
+}
+
+export const spreadsheetConverter: ToolModule = {
+  id: 'spreadsheet-converter',
+  section: 'convert',
+  category: 'conversion',
+  nameKey: 'tools.spreadsheetConverter.name',
+  descriptionKey: 'tools.spreadsheetConverter.description',
+  icon: Table2,
+  route: '/convert/spreadsheets',
+  features: [],
+  acceptedMimeTypes: [],
+  status: 'coming-soon',
+  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('spreadsheet-converter') }))),
+}
+
+export const mediaConverter: ToolModule = {
+  id: 'media-converter',
+  section: 'convert',
+  category: 'conversion',
+  nameKey: 'tools.mediaConverter.name',
+  descriptionKey: 'tools.mediaConverter.description',
+  icon: Music,
+  route: '/convert/media',
+  features: [],
+  acceptedMimeTypes: [],
+  status: 'coming-soon',
+  component: lazy(() => import('./planned/GenericPlannedPage').then((m) => ({ default: m.makePage('media-converter') }))),
 }
